@@ -1229,37 +1229,3 @@ def run_fit(circuit, nb_run, nb_fit, init_types, f_limits, datafilepath, prmfile
                  LCC_results, prm_end_run, prm_user, additional_messages=['Computing Summary ...'])
     _get_summary(fit_folder, I, I_num)
     _plot_summary(fit_folder)
-
-if __name__ == '__main__':
-
-    circuit = 'Rel+Qdl/Rct+Rox/Qox+Wox'
-    #circuit = 'Rel+Rct/Qdl'
-
-    I = cdp.get_symbolic_immittance(circuit, immittance_type = 'Z', simplified = False)
-    I_num = cdp.get_numeric_immittance(I)
-    w = np.logspace(-3,6,100)*2*np.pi
-
-    prmfilepath = './test2.PrmInit'
-    datafilepath = './141052-2014_11_24-0900-S1-Zy2-EIS.z'
-
-    prm_user = _import_prm_file(prmfilepath)
-    
-    _check_parameter_names(prm_user, I)
-    _check_parameter_values(prm_user)
-    
-    prm_array = _initialize_prm_from_immittance(I)
-    prm_array = _update_prm(prm_user, prm_array)
-
-    Z= I_num(prm_array['Values'], w)
-    
-    run_fit(circuit, 3, 50, ('random','random','random'), (5e-3, 10e6), datafilepath,\
-            prmfilepath,\
-            immittance_type = 'Z',\
-            root = './', alloy='test', alloy_id='1',\
-            random_loops=1000, process_id=1, simplified=False,\
-            maxiter=200, maxfun=200, xtol=1e-30, ftol=1e-30,\
-            full_output=True, retall=False, disp=False, fmin_callback=None, callback=_callback_fit)
-
-##    filepath = './test-1/2015_02_22-193052-test-1-Rel_s_Qdl_p_Rct_s_Rox_p_Qox_s_Wox-RRR-5e-03Hz_1e+07Hz/'
-##    _get_summary(filepath, I, I_num)
-##    _plot_summary(filepath)
