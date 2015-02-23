@@ -478,16 +478,4 @@ def get_numeric_immittance(symbolic_immittance):
 
     return numeric_immittance
 
-if __name__ == '__main__':
 
-    circuit = 'R@el+(Cdl+((Rf+C)/Qdl))+(R/Q)'
-    print('##### Test get_symbolic_immittance ####')
-    print('Input Circuit: {0:s}'.format(circuit))
-    I = get_symbolic_immittance(circuit, immittance_type = 'Z', simplified = False)
-    sym.pprint( I)
-
-    I_num = get_numeric_immittance(I)
-    print('Numeric Immittance:')
-    print(I_num)
-
-    
