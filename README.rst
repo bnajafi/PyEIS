@@ -1,7 +1,21 @@
 PyEIS
 ======
 
-Computing and fitting experimental data from Electrochemical Impedance Spectroscopy.
+Contains core functions for computing and fitting experimental data from Electrochemical Impedance Spectroscopy. 
+
+The functions are primarily aimed to be used in python scripts in order to automate the generation of calculated EIS data or fitting of experimental EIS data.
+
+The documentation is still uncomplete and the code is still under active development.
+
+How to install
+---------------
+
+Download the zip or tarball file and extract it localy. In your python script add the path to the PyEIS folder in order to be able to import modules.
+
+.. code-block:: python
+
+  import sys
+  sys.path.append('/path/to/the/PyEIS/folder/')
 
 Generating EIS data for a given circuit
 ----------------------------------------
