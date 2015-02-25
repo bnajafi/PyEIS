@@ -11,7 +11,7 @@ import sys
 import platform
 
 import numpy as np
-from scipy.optimize import fmin as nelder_mead
+from scipy.optimize import fmin
 from scipy.stats import linregress
 
 from matplotlib.backends.backend_pdf import PdfPages
@@ -77,6 +77,11 @@ DEFAULT_FTOL = 1e-8
 DEFAULT_MAXITER_PER_PARAMETER = 200
 DEFAULT_MAXFUN_PER_PARAMETER = 200
 
+HEADER_RESULT_ARRAY = [r'f /Hz',\
+                       r'|I_exp| /A', r'Phase_exp /deg', r'Re I_exp /A' , r'Im I_exp /A',\
+                       r'|I_calc| /A', r'Phase_calc /deg', r'Re I_calc /A' , r'Im I_calc /A',\
+                       r'Res |I| /A', r'Res Phase /deg', r'Res Re I /A', r'Res Im I /A']
+
 HEADER_MINIMIZATION_ELEMENTS = ['Nb of Run',\
               'Valid',\
               'np.log10(D)',\
@@ -95,14 +100,10 @@ HEADER_MINIMIZATION_ELEMENTS = ['Nb of Run',\
 
 
 
-
-
-
-
 def _get_header_footer_par_file(filepath):
     """
     
-    Parse *.par file and get the number of lines for the header and the footer.
+    Parse .par file and get the number of lines for the header and the footer.
     
     Parameters
     ----------
@@ -154,7 +155,9 @@ def _get_exp_data(filepath):
     Get the data array of data files according to their extension.
 
     Supported files are .z files recorded by ZView software, .par files recorded by VersaStudio and .data files
-    were the first three columns represent :math:`f`, :math:`\left ReZ`, :math:`ImZ`.
+    were the first three columns represent :math:`f`, :math:`ReZ`, :math:`ImZ`.
+
+    Frequencies, real and imaginary parts of the immittance are extracted from the files.
     
     Parameters
     -----------
@@ -196,28 +199,68 @@ def _get_exp_data(filepath):
             delimiter=','
             converters=None
         
-        w, ReZ, ImZ = np.genfromtxt(fname=filepath, dtype=np.float64, comments='#', delimiter=delimiter,\
+        f, ReZ, ImZ = np.genfromtxt(fname=filepath, dtype=np.float64, comments='#', delimiter=delimiter,\
                   skiprows=0, skip_header=skip_header, skip_footer=skip_footer,\
                   converters=converters, missing='', missing_values=None, filling_values=None,\
                   usecols=usecols, names=None, excludelist=None,\
                   deletechars=None, replace_space='_', autostrip=False, case_sensitive=True,\
                   defaultfmt='f%i', unpack=True, usemask=False, loose=True, invalid_raise=True)
         
-        return w, ReZ, ImZ
+        return f, ReZ, ImZ
     else:
         raise Exception('FileType Error: File was not recognized')
 
+def _get_frequency_mask(f, f_limits):
+
+    r"""
+
+    Get the index mask of the frequencies that will be used for computing or fitting EIS data
+
+    Parameters
+    -----------
+    f: 1d numpy array of floats
+        Frequency vector.
+
+    f_limits: tuple of floats
+        Start and end values for frequency vector.
+
+    Returns
+    --------
+    mask: 1d numpy array
+        Contains indexes of the frequency vector to be used.
     
 
+    """
+
+    f_start, f_end = f_limits
+    mask, = np.where( (f>=f_start) & (f<=f_end) )
+
+    return mask
+
 def _import_prm_file(filepath):
-    r""" DocString"""
+
+    r"""
+
+    Import parameter file which can have three type of extensions: .PrmInit, .PrmEnd, .PrmMin.
+
+    Parameters
+    -----------
+    filepath: string
+        Path to the parameter file.
+
+    Returns
+    --------
+    prm_array: 2d numpy array
+        Parameter array containing all necessary information of the parameters.
+
+    """
 
     npnames = PRM_NAMES
     npformats = PRM_FORMATS
     dtypes = np.dtype({'names':npnames, 'formats':npformats})
 
-    filepath = os.path.abspath(filepath)
-    prm_array = np.loadtxt(filepath,\
+    prmfilepath = os.path.abspath(filepath)
+    prm_array = np.loadtxt(prmfilepath,\
                            comments='#',\
                            delimiter='\t',
                            dtype=dtypes,\
@@ -227,7 +270,21 @@ def _import_prm_file(filepath):
 
 
 def _check_parameter_names(prm_array, symbolic_immittance):
-    r""" DocString"""
+
+    r"""
+
+    Check if the number and the names of the parameter given in the parameter array correspond
+    to the parameters returned by the symbolic expression of the immittance.
+
+    Parameters
+    -----------
+    prm_array: 2d numpy array
+        Parameter array containing all necessary information of the parameters.
+
+    symbolic_immittance: sympy expression
+        Symbolic expression of the immittance computed with sympy in the `circuit_decomposition`.
+
+    """
 
     parameters, parameters_names = cdp._get_parameters(symbolic_immittance)
 
@@ -247,6 +304,28 @@ def _check_parameter_names(prm_array, symbolic_immittance):
 
 
 def _check_parameter_values(prm_array):
+
+    r"""
+
+    Check if the parameter values are different from zero.
+
+    Check if the parameter lower and upper bounds are different from zero.
+
+    Check if the parameter lower bounds are lower than the upper bounds.
+
+    Check if the options Fixed, LogRandomize, LogScan and Sign are set to -1, 0, or 1.
+
+    Parameters
+    -----------
+    prm_array: 2d numpy array
+        Parameter array containing all necessary information of the parameters.
+
+    Returns
+    --------
+    None
+
+
+    """
 
     mask, = np.where(prm_array['Values'] == 0)
     if mask.size > 0:
@@ -293,12 +372,43 @@ def _check_parameter_values(prm_array):
 
 def _get_mask_to_fit(prm_array):
 
+    r"""
+
+    Get the indexes of the parameters to be fitted.
+
+    Parameters
+    -----------
+    prm_array: 2d numpy array
+        Parameter array containing all necessary information of the parameters.
+
+    Returns
+    --------
+    mask: 1d numpy array
+        Contains indexes of the parameters to be fitted.
+
+    """
+
     mask, = np.where(prm_array['Fixed'] == 0)
     return mask
 
 
 def _get_mask_not_valid(prm_array):
-    r""" DocString"""
+
+    r"""
+
+    Get the indexes of the parameters that are not valid i.e. the values are out of the bounds.
+
+    Parameters
+    -----------
+    prm_array: 2d numpy array
+        Parameter array containing all necessary information of the parameters.
+
+    Returns
+    --------
+    mask: 1d numpy array
+        Contains indexes of the parameters that are not valid.
+
+    """
 
     mask_to_fit = _get_mask_to_fit(prm_array)
     
@@ -312,7 +422,22 @@ def _get_mask_not_valid(prm_array):
 
 
 def _get_mask_logscan(prm_array):
-    r""" DocString"""
+    
+    r"""
+
+    Get the indexes of the parameters to be scanned in the logarithmic scale.
+
+    Parameters
+    -----------
+    prm_array: 2d numpy array
+        Parameter array containing all necessary information of the parameters.
+
+    Returns
+    --------
+    mask: 1d numpy array
+        Contains indexes of the parameters to be scanned in the logarithmic scale.
+
+    """
     
     mask_to_fit = _get_mask_to_fit(prm_array)
     mask, = np.where(prm_array['LogScan'][mask_to_fit] == 1)
@@ -321,19 +446,51 @@ def _get_mask_logscan(prm_array):
 
 
 def _check_validity_prm(prm_array):
-    r""" DocString"""
 
-    flag = False
+    r"""
+
+    Check if there are parameters that are not valid.
+
+    Parameters
+    -----------
+    prm_array: 2d numpy array
+        Parameter array containing all necessary information of the parameters.
+
+    Returns
+    --------
+    valid: bool
+        Flag indicating if there are parameters that are not valid.
+        
+
+    """
+
+    valid = False
 
     mask_not_valid = _get_mask_not_valid(prm_array)
 
     if mask_not_valid.size == 0:
-        flag = True
+        valid = True
 
-    return flag
+    return valid
 
 
 def _initialize_prm_from_immittance(symbolic_immittance):
+
+    r"""
+
+    Initialize a new parameter array from the symbolic expression of the immittance.
+
+    Parameters
+    -----------
+    symbolic_immittance: sympy expression
+        Symbolic expression of the immittance computed with sympy in the `circuit_decomposition`.
+
+    Returns
+    --------
+    prm_array: 2d numpy array
+        Parameter array initialized with zeros.
+
+    """
 
     parameters, parameter_names = cdp._get_parameters(symbolic_immittance)
     dtypes = np.dtype({'names':PRM_NAMES, 'formats':PRM_FORMATS})
@@ -344,6 +501,28 @@ def _initialize_prm_from_immittance(symbolic_immittance):
 
 
 def _update_prm(from_prm, to_prm):
+
+    r"""
+
+    Parameter order defined in the parameter files can be different from the order of the parameters given by the symbolic expression of the immittance.
+
+    Update the `to_prm` array values from the `from_prm array`. 
+
+
+    Parameters
+    -----------
+    from_prm: 2d numpy array
+        Parameter array.
+
+    to_prm: 2d numpy array
+        Parameter array.
+
+    Returns
+    --------
+    to_prm: 2d numpy array
+        Parameter array containing all necessary information of the parameters.
+
+    """
     
     
     for ind, name in enumerate(to_prm['Names']):
@@ -354,7 +533,26 @@ def _update_prm(from_prm, to_prm):
 
 
 def _get_random_prm_values(prm_array, all_parameters=False):
-    r""" DocString"""
+
+
+    r"""
+
+    Generate random values for the parameters that are not fixed. The randomization can be applied to all or only not valid parameters.
+
+    Parameters
+    -----------
+    prm_array: 2d numpy array
+        Parameter array containing all necessary information of the parameters.
+
+    all_parameters: bool
+        Flag indicating if all not fixed parameters must be randomized no matter if there are valid or not.
+
+    Returns
+    --------
+    prm_array: 2d numpy array
+        Parameter array with randomized values.
+
+    """
 
     mask_to_fit = _get_mask_to_fit(prm_array)
 
@@ -400,31 +598,33 @@ def _get_random_prm_values(prm_array, all_parameters=False):
 
 
 def _get_distance(I_exp, I_calc):
+
     r"""
 
-    Compute the distance :math:`S` between :math:`I_{exp}` and
-    :math:`I_{calc}`.
-    The distance is computed by multiplying the distances on real and imaginary
-    parts of :math:`Iph`:
+    Compute the distance :math:`D` between the experimental immittance :math:`I_{exp}` and the calculated immittance :math:`I_{calc}`.
+
+    The distance is computed by multiplying the distances on real and imaginary parts of :math:`I`.
+
+    The weights are set to the modulus of the experimental immittance :math:`\left | I_{exp} \right |`.
 
     .. math::
         
         \Delta Re & = Re \, I_{exp} - Re \, I_{calc} \\
         \Delta Im & = Im \, I_{exp} - Im \, I_{calc} \\
-        S = \sum weights*(\Delta Re^2 + \Delta Im^2)
+        D = \sum weights*(\Delta Re^2 + \Delta Im^2)
 
     Parameters
     ----------
     I_exp: 1d numpy array
-            Contains the complex values of the :math:`I_{exp}`.
+        Contains the complex values of the :math:`I_{exp}`.
 
     I_calc: 1d numpy array
-            Contains the complex values of the :math:`I_{calc}`.
+        Contains the complex values of the :math:`I_{calc}`.
 
     Returns
     -------
     D: float
-            The computed distance :math:`S` on real and imaginary parts of :math:`I`:.
+        The computed distance :math:`D` on real and imaginary parts of :math:`I`:.
 
     """
     mod_I_exp = np.absolute(I_exp)
@@ -439,14 +639,48 @@ def _get_distance(I_exp, I_calc):
 
     weights = 1.0/mod_I_exp**2
 
-    S = np.sum(weights*(delta_Re**2 + delta_Im**2))
+    D = np.sum(weights*(delta_Re**2 + delta_Im**2))
     
-    return S
+    return D
         
 
 
-def _target_function(p, w, prm_array, I_exp, I_num):
-    r"""DocString"""
+def _target_function(p, w, prm_array, I_exp, I_numeric):
+
+
+    r"""
+
+    Update the prm_array with the vector `p` sent by the fmin procedure (see Scipy for more details).
+
+    The calculated complex values of :math:`I` will be sent along the experimental values to the :func:`_get_distance` function.
+
+    The value of the distance between the experimental and calculated data will sent back to the optimization algorithm.
+    
+
+    Parameters
+    ----------
+    p: 1d array
+        Parameter vector sent by the optimization algorithm.
+
+    w: 1d array
+        Angular frequencies for which the complex values of :math:`I` have to be calculated.
+
+    prm_array: 2d array
+        Parameter array containing all necessary information of the parameters.
+
+    I_exp: 1d numpy array
+        Contains the complex values of the experimental immittance :math:`I`.
+
+    I_numeric: numpy ufunc
+        Lambdified immittance from the symbolic expression.
+    
+    Returns
+    -------
+    distance: float
+        Calculated distance between experimental and calculated data values.
+        See the :func:`_get_distance` function.
+
+    """
 
     mask_to_fit = _get_mask_to_fit(prm_array)
     mask_logscan = _get_mask_logscan(prm_array)
@@ -456,25 +690,76 @@ def _target_function(p, w, prm_array, I_exp, I_num):
     p0[mask_logscan] = 10**p0[mask_logscan]
     prm_array['Values'][mask_to_fit] = p0
 
-    I_calc = I_num(prm_array['Values'], w)
+    I_calc = I_numeric(prm_array['Values'], w)
     
-    S = _get_distance(I_exp, I_calc)
+    D = _get_distance(I_exp, I_calc)
 
-    return S
+    return D
 
 
 def _minimize(w, I_exp_complex, I_numeric, prm_array,\
              maxiter=None, maxfun=None, xtol=DEFAULT_XTOL, ftol=DEFAULT_FTOL,\
              full_output=True, retall=False, disp=False, callback=None):
 
-    r"""DocString"""
+    r"""
+
+    Execute the Nelder-Mead algorithm through the `fmin` procedure (see Scipy documentation) based on parameter values given by
+    ``prm_array`` and the angular frequency vector :math:`\omega`.
+
+    Parameters
+    ----------
+    w: 1d array
+        Angular frequencies.
+
+    I_exp_complex: 1d numpy array
+        Contains the complex values of the experimental immittance :math:`I`.
+
+    I_numeric: numpy ufunc
+        Lambdified immittance from the symbolic expression.
+
+    prm_array: 2d array
+        Parameter array containing all necessary information of the parameters.
+
+    maxiter : int, optional
+        Maximum number of iterations to perform.
+
+    maxfun : number, optional
+        Maximum number of function evaluations to make.
+
+    xtol : float, optional
+        Relative error in xopt acceptable for convergence.
+        
+    ftol : number, optional
+        Relative error in func(xopt) acceptable for convergence.
+
+    full_output : bool, optional
+        Set to True if fopt and warnflag outputs are desired.
+
+    retall : bool, optional
+        Set to True to return list of solutions at each iteration.
+        
+    disp : bool, optional
+        Set to True to print convergence messages.
+
+    callback : callable, optional
+        Called after each iteration, as callback(xk), where xk is the current parameter vector.
+
+    Returns
+    -------
+    prm_array: 2d array
+        Parameter array containing the updated values of the parameters.
+        
+    fopt : float
+        Value of function at minimum: ``fopt = func(xopt)``.
+        
+    """
 
     mask_to_fit = _get_mask_to_fit(prm_array)
     mask_logscan = _get_mask_logscan(prm_array)
     p0 = prm_array['Values'][mask_to_fit]
     p0[mask_logscan] = np.log10(p0[mask_logscan])
 
-    popt ,fopt ,iteration ,funcalls ,warnflag = nelder_mead(_target_function,\
+    popt, fopt, iteration ,funcalls ,warnflag = fmin(_target_function,\
                                                               p0 ,\
                                                               args=(w,\
                                                                     prm_array,\
@@ -499,6 +784,31 @@ def _minimize(w, I_exp_complex, I_numeric, prm_array,\
 
 def _get_complex_parameters(z, deg=True):
 
+    r"""
+
+    Get the modulus, the phase, the real and imaginary parts from a complex array.
+
+    Parameters
+    -----------
+    z: 1d numpy array
+        Vector of complex number to be processed.
+
+    Returns
+    --------
+    mod: 1d numpy array
+        Modulus of the z vector
+
+    phase: 1d numpy array
+        Phase of the z vector
+
+    Re: 1d numpy array
+        Real part of the z vector.
+
+    Im: 1d numpy array
+        Imaginary part of the z vector.
+
+    """
+
     mod = np.absolute(z)
     phase = np.angle(z, deg=deg)
     Re = np.real(z)
@@ -508,8 +818,58 @@ def _get_complex_parameters(z, deg=True):
 
 
 def _get_LCC(I_exp_complex, I_calc_complex):
+
     r"""
 
+    Compute the correlation coefficients, the slope and the intercept between experimental and calculated values for the modulus, phase, real and imaginary parts.
+
+    The computation is performed through the `linregress` procedure (see Scipy for more details).
+
+    Parameters
+    -----------
+    I_exp_complex: 1d numpy array
+        Contains the complex values of the experimental immittance :math:`I`.
+
+    I_calc_complex: 1d numpy array
+        Contains the complex values of the calculated immittance :math:`I`.
+
+    Returns
+    --------
+    r_mod: float
+        Correlation coefficient for the modulus.
+
+    r_phase: float
+        Correlation coefficient for the phase.
+
+    r_Re: float
+        Correlation coefficient for the real part.
+
+    r_Im: float
+        Correlation coefficient for the imagianry part.
+
+    slope_mod: float
+        Slope for the modulus.
+
+    slope_phase: float
+        Slope for the phase.
+
+    slope_Re: float
+        Slope for the real part.
+
+    slope_Im: float
+        Slope for the imagianry part.
+
+    intercept_mod: float
+        Intercept for the modulus.
+
+    intercept_phase: float
+        Intercept for the phase.
+
+    intercept_Re: float
+        Intercept for the real part.
+
+    intercept_Im: float
+        Intercept for the imaginary part.
 
     """
 
@@ -533,9 +893,6 @@ def _get_results_array(f, I_exp_complex, I_calc_complex):
 
     Build the data array of the experimental and calculated data: :math:`f`,
     :math:`ReZ_{exp}`, :math:`ImZ_{exp}`, :math:`ReZ_{calc}` and :math:`ImZ_{calc}`
-
-            
-
     
     Parameters
     ----------
@@ -543,21 +900,18 @@ def _get_results_array(f, I_exp_complex, I_calc_complex):
         Contains the frequency vector.
 
     I_exp_complex: 1d array
-            Contains the complex values of :math:`I_{exp}`.
+        Contains the complex values of :math:`I_{exp}`.
 
     I_calc_complex: 1d array
-            Contains the complex values of :math:`I_{calc}`.
+        Contains the complex values of :math:`I_{calc}`.
 
     Returns
     -------
-    data_array: 2d array
-            Array containing the .
+    data_array: 2d numpy array
+        Array containing the experimental and calculated values.
 
     """
-    header = '\t'.join([r'f /Hz',\
-                        r'|I_exp| /A', r'Phase_exp /deg', r'Re I_exp /A' , r'Im I_exp /A',\
-                        r'|I_calc| /A', r'Phase_calc /deg', r'Re I_calc /A' , r'Im I_calc /A',\
-                        r'Res |I| /A', r'Res Phase /deg', r'Res Re I /A', r'Res Im I /A'])
+    header = '\t'.join(HEADER_RESULT_ARRAY)
     
     mod_exp, phase_exp, Re_exp, Im_exp = _get_complex_parameters(I_exp_complex, deg=True)
     mod_calc, phase_calc, Re_calc, Im_calc = _get_complex_parameters(I_calc_complex, deg=True)
@@ -578,6 +932,67 @@ def _get_results_array(f, I_exp_complex, I_calc_complex):
 def _save_results(run, process_id, fit_folder, datafilepath, circuit_str, f, mask, I_exp_complex, I_numeric,\
                   prm_user, prm_min_run, prm_end_run, distance_min_run, distance_end_run,\
                   minimization_results, header_minimization_results):
+
+    r"""
+
+    Save the minimum and the end parameter array as well as the result arrays computed from them.
+
+    Parameters
+    -----------
+    run: int
+        Indicates the current run.
+
+    process_id: int
+        Indicates the current process if the parallel are processes are used.
+
+    fit_folder: string
+        Path the fit folder where the files will be saved.
+
+    datafilepath: string
+        Filepath to the experimental data file.
+
+    circuit_str: string
+        Circuit representation to be added in the naming of the result files.
+
+    f: 1d numpy array
+        Frequency vector.
+
+    mask: 1d numpy array
+        Contains indexes of the frequency vector to be used.
+
+    I_exp_complex:
+        Contains the complex values of :math:`I_{exp}`.
+        
+    I_numeric: numpy ufunc
+        Lambdified immittance from the symbolic expression.
+
+    prm_user: 1d numpy array
+        Parameter array containing all necessary information of the parameters.
+
+    prm_min_run:
+        Parameter array for the minimal distance of the minimizations. 
+
+    prm_end_run:
+        Parameter array for the end distance of the minimizations. 
+    
+    distance_min_run:
+        Minimal distance achieved during the minimization. 
+
+    distance_end_run:
+        End distance achieved during the minimization. 
+
+    minimization_results:
+        All values for each minimization.
+
+    header_minimization_results:
+        Header for the `minimization_results` array.
+
+    Returns
+    --------
+    None
+
+
+    """
 
     name, ext = os.path.basename(datafilepath).split('.')
     N = prm_end_run['Names'].size
@@ -625,6 +1040,40 @@ def _save_results(run, process_id, fit_folder, datafilepath, circuit_str, f, mas
 def _save_pdf(filepath,\
               f, I_exp_complex, I_calc_complex,\
               mask, minimization_results, data):
+
+    r"""
+
+    Save the plots of the results for the minimum and the final distance after each minimization.
+
+    Nyquist plot, Bode modulus and phase plots as well as the residual plots are saved in one common pdf file.
+
+    Parameters
+    -----------
+    filepath: string
+
+    f: 1d numpy array
+
+    I_exp_complex:
+        Contains the complex values of :math:`I_{exp}`.
+
+    I_calc_complex:
+        Contains the complex values of :math:`I_{calc}`.
+
+    mask: 1d numpy array
+        Contains indexes of the frequency vector to be used.
+
+    minimization_results:
+        All values for each minimization.
+
+    data: 2d numpy array
+        Array containing the experimental and calculated values.
+        
+
+    Returns
+    --------
+    None
+
+    """
 
     pdf = PdfPages(filepath)
     scilimits = (1e-6,1e6)
@@ -775,6 +1224,33 @@ def _save_pdf(filepath,\
 
 def _get_summary(fit_folder, symbolic_immittance, numeric_immittance):
 
+    r"""
+
+    List the result files for parameters at the end and the minimum of each run.
+
+    Compute the distance, the LCCs for the frequency range that was used for minimizing the target function.
+
+    The results are saved in 2 files: *.SumEnd, .SumMin.
+
+
+    Parameters
+    -----------
+    fit_folder: string
+        Path of the fit folder.
+
+    symbolic_immittance: sympy expression
+        Symbolic expression of the immittance computed with sympy in the `circuit_decomposition`.
+    
+    numeric_immittance: numpy ufunc
+        Lambdified immittance from the symbolic expression.
+
+
+    Returns
+    -------
+    None
+        
+    """
+
     dirpath = os.path.abspath(fit_folder)
     listfiles = os.listdir(dirpath)
     PRM_end = []
@@ -866,6 +1342,21 @@ def _get_summary(fit_folder, symbolic_immittance, numeric_immittance):
 
 def _plot_summary(fit_folder):
 
+    r"""
+
+    Plot the result files that were created by the :func:`_get_summary` for the parameter values at the end and the minimum of each run.
+
+    The results are saved in 2 files: -0-End.pdf, -0-Min.pdf.
+
+
+    Parameters
+    -----------
+    fit_folder: string
+        Path of the fit folder.
+
+
+    """
+
     dirpath = os.path.abspath(fit_folder)
     listfiles = os.listdir(dirpath)
     description_filepath = ''
@@ -926,7 +1417,6 @@ def _plot_summary(fit_folder):
     colors = ['b', 'r', 'g', 'y', 'm', 'c', 'darkblue', 'darkred', 'darkgreen', 'lightblue', 'orange', 'lightgreen','k', 'gray']
     scilimits = (-4,4)
 
-
     params = summary_end[mask_end, len(HEADER_MINIMIZATION_ELEMENTS):]
     no_run = summary_end[mask_end, 0]
     for ind, name in enumerate(prm_user['Names']):
@@ -984,7 +1474,7 @@ def _plot_summary(fit_folder):
     pdf_end.close()
     pdf_min.close()
 
-def _random_scan(w, prm_array, prm_user, I_exp_complex, symbolic_immittance, numeric_immittance, run, nb_run, loops=1, callback=None, args=None):
+def _random_scan(w, prm_array, prm_user, I_exp_complex, symbolic_immittance, numeric_immittance, loops=1):
 
     prm_array_random = _initialize_prm_from_immittance(symbolic_immittance)
     prm_array_random_min = _initialize_prm_from_immittance(symbolic_immittance)
@@ -999,17 +1489,11 @@ def _random_scan(w, prm_array, prm_user, I_exp_complex, symbolic_immittance, num
 
     distance_min = distance
 
-    if callback is not None:
-        callback(run, nb_run, 1, loops, distance, valid, prm_array, prm_user)
-
     for i in range(loops-1):
         prm_array_random = _get_random_prm_values(prm_array, all_parameters=True)
         I_calc_complex = numeric_immittance(prm_array_random['Values'], w)
         distance = _get_distance(I_exp_complex, I_calc_complex)
         valid = _check_validity_prm(prm_array)
-
-        if callback is not None:
-            callback(run, nb_run, i+2, loops, distance, valid, prm_array, prm_user)
 
 
         if valid == True:
@@ -1020,7 +1504,7 @@ def _random_scan(w, prm_array, prm_user, I_exp_complex, symbolic_immittance, num
 
     return prm_array_random_min
 
-def _callback_fit(run, nb_run, fit, nb_fit,\
+def _callback_fit(run, nb_run, fit, nb_minimization,\
               distance, valid,\
               LCC_results, prm_array, prm_user, additional_messages=[]):
 
@@ -1028,69 +1512,92 @@ def _callback_fit(run, nb_run, fit, nb_fit,\
 
     sys.stdout.write('***** Run = %d/%d ***** \n'  % (run+1, nb_run))
     sys.stdout.write('Minimizing ...\n')
-    sys.stdout.write('Fit {0:03d}/{4:03d}-log10(D)={1:+09.4f}-Valid={2:b}-LCC={5:.6f},{6:.6f},{7:.6f},{8:.6f}\n'.format(fit+1, np.log10(distance), valid, run, nb_fit,LCC_results[0], LCC_results[1],LCC_results[2],LCC_results[3]))
+    sys.stdout.write('Fit {0:03d}/{4:03d}-log10(D)={1:+09.4f}-Valid={2:b}-LCC={5:.6f},{6:.6f},{7:.6f},{8:.6f}\n'.format(fit+1, np.log10(distance), valid, run, nb_minimization,LCC_results[0], LCC_results[1],LCC_results[2],LCC_results[3]))
     prm = _update_prm(prm_array, prm_user)
     sys.stdout.write(str(prm)+'\n')
     for i in additional_messages:
         sys.stdout.write(i+'\n')
     sys.stdout.flush()
 
-def _callback_random_scan(run, nb_run, loop, loops, distance, valid, prm_array, prm_user):
 
-    os.system('cls' if os.name == 'nt' else 'clear')
+def _get_circuit_string(circuit):
 
-    sys.stdout.write('***** Run = %d/%d ***** \n'  % (run+1, nb_run))
-    sys.stdout.write('Random Scan...\n')
-    sys.stdout.write('Fit {0:06d}/{1:06d}-log10(D)={2:+09.4f}-Valid={3:b}\n'.format(loop, loops, np.log10(distance), valid))
-    prm = _update_prm(prm_array, prm_user)
-    sys.stdout.write(str(prm))
-    sys.stdout.flush()
-    
+    circuit_str = circuit.replace('+','_s_').replace('/','_p_')
 
-def run_fit(circuit, nb_run, nb_fit, init_types, f_limits, datafilepath, prmfilepath,\
-            immittance_type = 'Z',\
-            root = './', alloy='Unspecified_Alloy', alloy_id='Unspecified_ID',\
-            random_loops=DEFAULT_RANDOM_LOOPS, process_id=1, simplified=False,\
-            maxiter=DEFAULT_MAXITER_PER_PARAMETER, maxfun=DEFAULT_MAXFUN_PER_PARAMETER, xtol=DEFAULT_XTOL, ftol=DEFAULT_FTOL,\
-            full_output=True, retall=False, disp=False, fmin_callback=None, callback=None):
+    return circuit_str
 
-    #Symbolic Immittance
-    I = cdp.get_symbolic_immittance(circuit, immittance_type = immittance_type, simplified = simplified)
-    I_num = cdp.get_numeric_immittance(I)
-    
-    #import parameters
+def _save_fit_settings(circuit,\
+                       immittance_type,\
+                       datafilepath,\
+                       f_limits,\
+                       prmfilepath,\
+                       process_id,\
+                       nb_processes,\
+                       nb_run_per_process,\
+                       nb_minimization,\
+                       init_type_0,\
+                       random_loops,\
+                       init_type_N,\
+                       init_type_validation,\
+                       xtol,\
+                       ftol,\
+                       maxiter_per_parameter,\
+                       maxfun_per_parameter,\
+                       fit_folder):
+
+    datafilepath = os.path.abspath(datafilepath)
     prmfilepath = os.path.abspath(prmfilepath)
-    prm_user = _import_prm_file(prmfilepath)
-    _check_parameter_names(prm_user, I)
-    _check_parameter_values(prm_user)
+    datafilename, ext = os.path.basename(datafilepath).split('.')
+    circuit_str = circuit.replace('+','_s_').replace('/','_p_')
+    f_start, f_end = f_limits
     
-    prm_init = _initialize_prm_from_immittance(I)
-    prm_array = _initialize_prm_from_immittance(I)
-    prm_min_run = _initialize_prm_from_immittance(I)
-    prm_end_run = _initialize_prm_from_immittance(I)
-    
-    prm_array = _update_prm(prm_user, prm_array)
-    prm_init = _update_prm(prm_user, prm_init)
-    prm_min_run = _update_prm(prm_user, prm_min_run)
-    prm_end_min = _update_prm(prm_user, prm_end_run)
+    fit_settings = ['Circuit={0:s}'.format(circuit),\
+                    'Immittance Type={0:s}'.format(immittance_type),\
+                    'Experimental Data File={0:s}'.format(datafilepath),\
+                    'Frequency Range (Hz)={0:.2e},{1:.2e}'.format(f_start, f_end),\
+                    'Parameter File={0:s}'.format(prmfilepath),\
+                    'No of Processes={0:d}'.format(nb_processes),\
+                    'No of Runs={0:d}'.format(nb_run_per_process),\
+                    'No of Fits per Run={0:d}'.format(nb_minimization),\
+                    'Initialization Run 1={0:s}'.format(init_type_0),\
+                    'Random Loops={0:d}'.format(random_loops),\
+                    'Propagation Run > 1={0:s}'.format(init_type_N),\
+                    'Initialize after non valid parameters={0:s}'.format(init_type_validation),\
+                    'log10 xtol={0:.0f}'.format(np.log10(xtol)),\
+                    'log10 ftol={0:.0f}'.format(np.log10(ftol)),\
+                    'Iterations/Parameter={0:d}'.format(maxiter_per_parameter),\
+                    'fcalls/Parameter={0:d}'.format(maxfun_per_parameter),\
+                    'Result Folder={0:s}'.format(os.path.abspath(fit_folder))]
+                    
+    text = '\n'.join(fit_settings)
+    filepath = fit_folder + '/' + datafilename + '-' + circuit_str + '.' + FIT_SETTING_EXT
+    filepath = os.path.abspath(filepath)
+    fobj = open(filepath,'w')
+    fobj.write(text)
+    fobj.close()
 
-    mask_to_fit = _get_mask_to_fit(prm_array)
-    N = mask_to_fit.size
-    
-    #import data
+
+def _create_fit_folder(root, datafilepath, alloy, alloy_id, circuit, init_types, f_limits, prm_user):
+
     datafilepath = os.path.abspath(datafilepath)
     datafilename, ext = os.path.basename(datafilepath).split('.')
-    f, ReZ, ImZ = _get_exp_data(datafilepath)
-    w = 2*np.pi*f
-    I_exp_complex = ReZ+1j*ImZ
-    f_start, f_end = f_limits
-    mask, = np.where( (f>=f_start) & (f<=f_end) )
 
     init_type_0, init_type_validation, init_type_N = init_types
+
+    if f_limits is None:
+        f_limits = (np.min(f), np.max(f))
+    f_start, f_end = f_limits
 
     alloy = alloy.replace(' ','_')
     alloy_id = alloy_id.replace(' ','_')
     timestamp = datetime.datetime.now().strftime('%Y_%m_%d-%H%M%S')
+
+    if root is None:
+        root = './'
+    if alloy is None:
+        alloy = 'Unspecified_Alloy'
+    if alloy_id is None:
+        alloy_id = 'Unspecified_ID'
 
     if len(alloy) == 0:
         alloy = 'Unspecified_Alloy'
@@ -1099,7 +1606,7 @@ def run_fit(circuit, nb_run, nb_fit, init_types, f_limits, datafilepath, prmfile
 
     
     alloy_folder = root + '/' + alloy + '-' + alloy_id
-    circuit_str = circuit.replace('+','_s_').replace('/','_p_')
+    circuit_str = _get_circuit_string(circuit)
     fit_folder = alloy_folder + '/' + timestamp + '-' + alloy + '-' + alloy_id + '-' + circuit_str + '-' +\
                  init_type_0[0].capitalize() + init_type_validation[0].capitalize() + init_type_N[0].capitalize()+\
                  '-' + '{0:.0e}Hz_{1:.0e}Hz'.format(f_start, f_end)
@@ -1117,56 +1624,331 @@ def run_fit(circuit, nb_run, nb_fit, init_types, f_limits, datafilepath, prmfile
 
     filepath = fit_folder + '/' + datafilename + '-' + circuit_str + '.' + PRM_INIT_EXT
     filepath = os.path.abspath(filepath)
-    print filepath
     np.savetxt(filepath, prm_user, fmt=PRM_FORMATS_STR, delimiter='\t', newline='\n', header='\t'.join(PRM_NAMES))
+
+
+    return fit_folder
+
+
+def _initiliaze_prm_arrays(symbolic_immittance, prmfilepath):
+
+    prmfilepath = os.path.abspath(prmfilepath)
+    prm_user = _import_prm_file(prmfilepath)
+    _check_parameter_names(prm_user, symbolic_immittance)
+    _check_parameter_values(prm_user)
     
+    prm_init = _initialize_prm_from_immittance(symbolic_immittance)
+    prm_array = _initialize_prm_from_immittance(symbolic_immittance)
+    prm_min_run = _initialize_prm_from_immittance(symbolic_immittance)
+    prm_end_run = _initialize_prm_from_immittance(symbolic_immittance)
+    
+    prm_array = _update_prm(prm_user, prm_array)
+    prm_init = _update_prm(prm_user, prm_init)
+    prm_min_run = _update_prm(prm_user, prm_min_run)
+    prm_end_min = _update_prm(prm_user, prm_end_run)
+
+    return prm_user, prm_init, prm_array, prm_min_run, prm_end_run
+
+
+
+def _initiliaze_minimization_array(nb_minimization, prm_user):
+
     header_minimization_results = '\t'.join(HEADER_MINIMIZATION_ELEMENTS) + '\t'
     header_minimization_results += '\t'.join(prm_user['Names'])
     col = len(HEADER_MINIMIZATION_ELEMENTS) + prm_user['Names'].size
+    minimization_results = np.zeros(shape=(nb_minimization, col), dtype=np.float64)
+
+    return header_minimization_results, minimization_results
+
+def import_experimental_data(filepath):
+
+    r"""
+
+    Import experimental data and compute the complex immittance.
+
+    Supported files are .z files recorded by ZView software, .par files recorded by VersaStudio and .data files
+    were the first three columns represent :math:`f`, :math:`ReZ`, :math:`ImZ`.
+
+    Frequencies, real and imaginary parts of the immittance are extracted from the files.
+
+    Parameters
+    -----------
+    filepath: string
+        Path to the experimental data file.
+
+    Returns
+    --------
+    f: 1d numpy array
+        Frequency vector.
+
+    w: 1d numpy array
+        Angular frequency computed as :math:`2 \pi f`
+
+    I_exp_complex: 1d numpy array
+        Complex electrochemical immittance computed as :math:`ReZ+jImZ`.
+
+    """
+
+    datafilepath = os.path.abspath(filepath)
+    datafilename, ext = os.path.basename(datafilepath).split('.')
+    f, ReZ, ImZ = _get_exp_data(datafilepath)
+    w = 2*np.pi*f
+    I_exp_complex = ReZ+1j*ImZ
+
+    return f, w, I_exp_complex
+
+def generate_calculated_values(circuit, prmfilepath, savefilepath,
+                               immittance_type='Z',
+                               f_limits = (1e-3, 1e6),
+                               points_per_decade = 10,
+                               sigma=0.0):
+
+    r"""
+
+    Generate values for a circuit from parameter values provided by the user.
+
+    Parameters
+    -----------
+    circuit : string
+        Expression of an electrical circuit (e.g. 'R1+R2/C2'). The operators '+' and '/' are used to symbolize
+        the serie or the parallel configuration.
+        
+        Electrical components can be resistors, capacitors, inductors, constant phase elements and diffusion (semi-infinite diffusion, convection-diffusion and constrained diffusion) elements.
+
+        The names of the components have to start with R, C, L, Q, W, D or M, respectively.
+
+    prmfilepath: string
+        Path to the parameter file.
+
+    savefilepath: string
+        Path the file where the data will be saved.
+
+    immittance_type: string
+        Type of immittance to be used for generating the symbolic and numeric expression.
+        Can be impedance or admittance i.e. Z or Y.
+
+    f_limts: tuple of floats, optional
+        Frequency range for the minimization procedure i.e. (lowest_frequency, highest_frequency).
+
+    points_per_decade: int
+        Number of points per decade for the frequency vector.
+
+    sigma: float
+        Standard deviation to be used for generating noisy values: 
+        :math:`I(\omega) = I_{calc}(\omega) + N(0, \sigma)`
     
-    minimization_results = np.zeros(shape=(nb_fit, col), dtype=np.float64)
+
+    """
+
+    #Symbolic Immittance
+    I = cdp.get_symbolic_immittance(circuit, immittance_type = immittance_type, simplified = False)
+    I_num = cdp.get_numeric_immittance(I)
+
+    #check and import parameters
+    prm_user, prm_init, prm_array, prm_min_run, prm_end_run = _initiliaze_prm_arrays(I, prmfilepath)
+
+    f_start, f_end = f_limits
+    logf_start, logf_end = np.log10(f_start), np.log10(f_end)
+    decades = np.absolute(logf_end - logf_start)
+    f = np.logspace(logf_start, logf_end, points_per_decade*decades)
+    w = 2*np.pi*f
+
+    I_calc_complex = I_num(prm_array['Values'], w)
+
+    I_calc_noisy = I_calc_complex + np.random.randn(w.size)*sigma
+
+    mod, phase, Re, Im = _get_complex_parameters(I_calc_noisy, deg=True)
+
+    header_elements = ['f /Hz',
+                       'Re{0:s}'.format(immittance_type),
+                       'Im{0:s}'.format(immittance_type),
+                       'Phase{0:s}'.format(immittance_type),\
+                       '|{0:s}|'.format(immittance_type)]
+
+    data = np.vstack((f, Re, Im, phase, mod)).transpose()
+    np.savetxt(savefilepath, X = data, delimiter='\t', header = '\t'.join(header_elements))
     
-    fit_settings = ['Circuit={0:s}'.format(circuit),\
-                    'Immittance Type={0:s}'.format(immittance_type),\
-                    'Experimental Data File={0:s}'.format(datafilepath),\
-                    'Frequency Range (Hz)={0:.2e},{1:.2e}'.format(f_start, f_end),\
-                    'Parameter File={0:s}'.format(prmfilepath),\
-                    'No of Processes='.format(str(1)),\
-                    'No of Runs per Process='.format(str(nb_run)),\
-                    'No of Runs='.format(str(nb_run)),\
-                    'No of Fits per Run='.format(str(nb_fit)),\
-                    'Initialization Run 1={0:s}'.format(init_type_0),\
-                    'Random Loops={0:d}'.format(random_loops),\
-                    'Propagation Run > 1={0:s}'.format(init_type_N),\
-                    'Initialize after non valid parameters={0:s}'.format(init_type_validation),\
-                    'log10 xtol={0:.0f}'.format(np.log10(xtol)),\
-                    'log10 ftol={0:.0f}'.format(np.log10(ftol)),\
-                    'Iterations/Parameter={0:s}'.format(str(maxiter)),\
-                    'fcalls/Parameter={0:s}'.format(str(maxfun)),\
-                    'Result Folder={0:s}'.format(os.path.abspath(fit_folder))]
-                    
-    text = '\n'.join(fit_settings)
-    filepath = fit_folder + '/' + datafilename + '-' + circuit_str + '.' + FIT_SETTING_EXT
-    filepath = os.path.abspath(filepath)
-    fobj = open(filepath,'w')
-    fobj.write(text)
-    fobj.close()
+    
+
+def run_fit(circuit, datafilepath, prmfilepath,
+            nb_run_per_process=3, nb_minimization=50,
+            f_limits = None, init_types=('random', 'random', 'random'), immittance_type = 'Z',\
+            root = None, alloy=None, alloy_id=None,\
+            random_loops=DEFAULT_RANDOM_LOOPS, nb_processes=1, process_id=1, simplified=False,\
+            maxiter_per_parameter=DEFAULT_MAXITER_PER_PARAMETER, maxfun_per_parameter=DEFAULT_MAXFUN_PER_PARAMETER, xtol=DEFAULT_XTOL, ftol=DEFAULT_FTOL,\
+            full_output=True, retall=False, disp=False, fmin_callback=None, callback=None):
+
+    r"""
+
+    `nb_run_per_process` will be started with the `init_types` initialization. `nb_minimization` will be performed by calling the `fmin` procedure
+    (see Scipy documentation for more details). After each call of the `fmin` procedure, the parameter values are check if there are
+    restricted to the boundaries fixed by the user in the parameter file.
+
+    The parameter corresponding to the minimal distance and the final distance for each run are saved in text files. All results of each minimization
+    are also stored in text file. The corresponding Nyquist, Bode Phase and Modulus plots are plotted for the minimal and the final distance.
+
+    A folder is created in the `root` folder which name is created after the `alloy` and `alloy_id` options. The naming of the folder follows the
+    following template: `%Y-%m-%d-%H%M%S-alloy-alloy_id-circuit-init_types-start_frequency_Hz-end_frequency_Hz`.
+
+    The results for each run are finally summarized by listing the result files for parameters at the end and the minimum of each run.
+    Compute the distance, the LCCs for the frequency range that was used for minimizing the target function.
+    The results are saved in 2 files: *.SumEnd, .SumMin. The results are plotted and saved in 2 files: -0-End.pdf, -0-Min.pdf.
+
+
+    Parameters
+    -----------
+    circuit : string
+        Expression of an electrical circuit (e.g. 'R1+R2/C2'). The operators '+' and '/' are used to symbolize
+        the serie or the parallel configuration.
+        
+        Electrical components can be resistors, capacitors, inductors, constant phase elements and diffusion (semi-infinite diffusion, convection-diffusion and constrained diffusion) elements.
+
+        The names of the components have to start with R, C, L, Q, W, D or M, respectively.
+
+    datafilepath: string
+        Path to the data file.
+
+    prmfilepath: string
+        Path to the parameter file.
+
+    nb_run_per_process: int, optional
+        Number of run per started process.
+
+    nb_minimization: int, optional
+        Number of minimization through the fmin procedure (see Scipy documentation for more details).
+
+    init_types: tuple of string, optional
+        Initialization types:
+
+        * for the first run: available options are random, user
+        * after invalid parameters in minimization procedure: available options are random, user
+        * for the following run i.e. run > 1: available options are random, user, min, end
+
+    f_limts: tuple of floats, optional
+        Frequency range for the minimization procedure i.e. (lowest_frequency, highest_frequency).
+        If f_limits is None the limits are set to the lowest and highest experimental frequency.
+
+    immittance_type: string
+        Type of immittance to be used for generating the symbolic and numeric expression.
+        Can be impedance or admittance i.e. Z or Y.
+
+    root: string
+        Path of the folder were the results will be saved. If `root` is set to None, the current working
+        directory is used.
+
+    alloy: string
+        Alloy identification. If `alloy` is set to None or is an empty string, `alloy` is set to
+        `Unspecified_Alloy`.
+
+    alloy_id: string
+        Sample identification. If `alloy_id` is set to None or is an empty string, `alloy_id` is set to
+        `Unspecified_Alloy_ID`.
+
+    random_loops: int, optional
+        Number of random loops to be performed in the case of random initialization.
+
+    nb_processes: int, optional
+        Number of processes to be started.
+
+    process_id: int, optional
+        Running process identification.
+        
+    simplified: bool, optional
+        Flag indicating if the symbolic expression of the immittance must be simplified or not.
+
+    maxiter_per_parameter : int, optional
+        Maximum number of iterations to perform.
+
+    maxfun_per_parameter : number, optional
+        Maximum number of function evaluations to make.
+
+    xtol : float, optional
+        Relative error in xopt acceptable for convergence.
+        
+    ftol : float, optional
+        Relative error in func(xopt) acceptable for convergence.
+
+    full_output : bool, optional
+        Set to True if fopt and warnflag outputs are desired.
+
+    retall : bool, optional
+        Set to True to return list of solutions at each iteration.
+        
+    disp : bool, optional
+        Set to True to print convergence messages.
+
+    fmin_callback : callable, optional
+        Called after each iteration in the fmin procedure, as callback(xk), where xk is the
+        current parameter vector. See Scipy documentation.
+
+    callback: callable, optional
+        Called after each minimization, as
+        callback(run, nb_run_per_process, fit, nb_minimization, distance, valid, LCC_results, prm_end_run, prm_user, additional_messages=[]).
+        
+    Returns
+    --------
+    None
+
+
+    """
+    #Symbolic Immittance
+    I = cdp.get_symbolic_immittance(circuit, immittance_type = immittance_type, simplified = simplified)
+    I_num = cdp.get_numeric_immittance(I)
+    
+    #check and import parameters
+    prm_user, prm_init, prm_array, prm_min_run, prm_end_run = _initiliaze_prm_arrays(I, prmfilepath)
+    mask_to_fit = _get_mask_to_fit(prm_array)
+    N = mask_to_fit.size
+    
+    #import data
+    datafilepath = os.path.abspath(datafilepath)
+    datafilename, ext = os.path.basename(datafilepath).split('.')
+    f, w, I_exp_complex = import_experimental_data(datafilepath)
+    mask = _get_frequency_mask(f, f_limits)
+
+    #set the initialization types
+    init_type_0, init_type_validation, init_type_N = init_types
+
+    #create fit folder
+    fit_folder  = _create_fit_folder(root, datafilepath, alloy, alloy_id, circuit, init_types, f_limits, prm_user)
+    circuit_str = _get_circuit_string(circuit)
+
+    #initiliaze the minimization array for storing results from minimization loops
+    header_minimization_results, minimization_results = _initiliaze_minimization_array(nb_minimization, prm_user)
+
+    #save fit settings
+    _save_fit_settings(circuit,\
+                       immittance_type,\
+                       datafilepath,\
+                       f_limits,\
+                       prmfilepath,\
+                       process_id,\
+                       nb_processes,\
+                       nb_run_per_process,\
+                       nb_minimization,\
+                       init_type_0,\
+                       random_loops,\
+                       init_type_N,\
+                       init_type_validation,\
+                       xtol,\
+                       ftol,\
+                       maxiter_per_parameter,\
+                       maxfun_per_parameter,\
+                       fit_folder)
 
     
-    for run in range(nb_run):
+    for run in range(nb_run_per_process):
         
         if run == 0:
 
             if init_type_0 == 'random':
-                prm_array = _random_scan(w, prm_array, prm_user, I_exp_complex, I, I_num, run, nb_run, loops=random_loops,\
-                                         callback=_callback_random_scan)
+                prm_array = _random_scan(w, prm_array, prm_user, I_exp_complex, I, I_num, loops=random_loops)
             elif init_type_0 == 'user':
                 prm_array[:] = prm_init[:]
         else:
             if init_type_N == 'random':
                 #prm_array = _get_random_prm_values(prm_array, all_parameters=True)
-                prm_array = _random_scan(w, prm_array, prm_user, I_exp_complex, I, I_num, run, nb_run, loops=random_loops,\
-                                         callback=_callback_random_scan)
+                prm_array = _random_scan(w, prm_array, prm_user, I_exp_complex, I, I_num, loops=random_loops)
             elif init_type_N == 'user':
                 prm_array[:] = prm_init[:]
             elif init_type_N == 'min':
@@ -1180,9 +1962,9 @@ def run_fit(circuit, nb_run, nb_fit, init_types, f_limits, datafilepath, prmfile
         distance_min_run = distance
         distance_end_run = distance
 
-        for fit in range(nb_fit):
+        for fit in range(nb_minimization):
             prm_array, distance = _minimize(w=w[mask], I_exp_complex=I_exp_complex[mask], I_numeric=I_num, prm_array=prm_array,\
-                                            maxiter=maxiter*N, maxfun=maxfun*N, xtol=xtol, ftol=ftol,\
+                                            maxiter=maxiter_per_parameter*N, maxfun=maxfun_per_parameter*N, xtol=xtol, ftol=ftol,\
                                             full_output=full_output, retall=retall, disp=disp,callback=fmin_callback)
 
             prm_output = _update_prm(prm_array, prm_user)
@@ -1200,7 +1982,7 @@ def run_fit(circuit, nb_run, nb_fit, init_types, f_limits, datafilepath, prmfile
 
 
             if callback is not None:
-                callback(run, nb_run, fit, nb_fit,\
+                callback(run, nb_run_per_process, fit, nb_minimization,\
                           distance, valid,\
                           LCC_results, prm_array, prm_user)
 
@@ -1216,7 +1998,7 @@ def run_fit(circuit, nb_run, nb_fit, init_types, f_limits, datafilepath, prmfile
                     prm_min_run[:] = prm_array[:]
 
         if callback is not None:
-            callback(run, nb_run, fit, nb_fit,\
+            callback(run, nb_run_per_process, fit, nb_minimization,\
                      distance, valid,\
                      LCC_results, prm_end_run, prm_user, additional_messages=['Saving Results ...'])
         _save_results(run, process_id, fit_folder, datafilepath, circuit_str, f, mask, I_exp_complex, I_num,\
@@ -1224,8 +2006,10 @@ def run_fit(circuit, nb_run, nb_fit, init_types, f_limits, datafilepath, prmfile
                   minimization_results, header_minimization_results)
 
     if callback is not None:
-        callback(run, nb_run, fit, nb_fit,\
+        callback(run, nb_run_per_process, fit, nb_minimization,\
                  distance, valid,\
                  LCC_results, prm_end_run, prm_user, additional_messages=['Computing Summary ...'])
+
     _get_summary(fit_folder, I, I_num)
     _plot_summary(fit_folder)
+

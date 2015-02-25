@@ -106,9 +106,13 @@ def _remove_unallowed_characters(circuit):
     return circuit
 
 def _check_unknown_components(circuit):
-    """
-    The function checks if the circuit contains unknown elements i.e. the elements that do not
-    start with R, C, L, Q, W, D or M will be interpreted as unknown elements.
+    
+
+    r"""
+
+    The function checks if the circuit contains unknown elements i.e.
+    the elements that do not start with R, C, L, Q, W, D or M will be
+    interpreted as unknown elements.
 
     Parameters
     ----------
@@ -125,7 +129,7 @@ def _check_unknown_components(circuit):
 
     """
     flag = False
-    
+
     circuit=circuit.replace('(','').replace(')','')
     elements=[]
     unknown_elements = []
@@ -478,4 +482,16 @@ def get_numeric_immittance(symbolic_immittance):
 
     return numeric_immittance
 
+if __name__ == '__main__':
 
+    circuit = 'R@el+(Cdl+((Rf+C)/Qdl))+(R/Q)'
+    print('##### Test get_symbolic_immittance ####')
+    print('Input Circuit: {0:s}'.format(circuit))
+    I = get_symbolic_immittance(circuit, immittance_type = 'Z', simplified = False)
+    sym.pprint( I)
+
+    I_num = get_numeric_immittance(I)
+    print('Numeric Immittance:')
+    print(I_num)
+
+    
