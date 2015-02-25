@@ -20,12 +20,12 @@ Download the zip or tarball file and extract it localy. In your python script ad
 Generating EIS data for a given circuit
 ----------------------------------------
 
+Let's compute the impedance of a simple electrical circuit: `Rel+Rct/Qdl`.
+
 .. code-block:: python
 
-  import matplotlib.pyplot as plt
-  import numpy as np
-
-
+  import eis_functions
+  
   #set the needed parameter in order to
   #calculate the EIS data
   circuit = 'Rel+Rct/Qdl'
@@ -40,6 +40,13 @@ Generating EIS data for a given circuit
                                          points_per_decade=10,
                                          sigma=5.0)
 
+Let's visualize the generated data
+
+.. code-block:: python
+
+  import numpy as np
+  import matplotlib.pyplot as plt
+  
   #Visualize the computed data
   f, Re, Im = np.loadtxt(savefilepath, usecols=(0,1,2), delimiter='\t', unpack=True)
 
