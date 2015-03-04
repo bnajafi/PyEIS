@@ -5,12 +5,12 @@ Contains core functions for computing and fitting experimental data from Electro
 
 The functions are primarily aimed to be used in python scripts in order to automate the generation of calculated EIS data or fitting of experimental EIS data.
 
-The documentation is still uncomplete and the code is still under active development.
+The documentation is still incomplete and the code is still under active development.
 
 How to install
 ---------------
 
-Download the zip or tarball file and extract it localy. In your python script add the path to the PyEIS folder in order to be able to import modules.
+Download the zip or tarball file and extract it locally. In your python script add the path to the PyEIS folder in order to be able to import modules.
 
 .. code-block:: python
 
