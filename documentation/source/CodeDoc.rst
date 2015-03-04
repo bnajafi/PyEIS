@@ -7,3 +7,14 @@ EIS Functions
 .. automodule:: eis_functions
 	:members:
 	:undoc-members:
+        :private-members:
+
+
+Errors Handling
+----------------
+
+.. currentmodule:: errors
+.. automodule:: errors
+	:members:
+	:undoc-members:
+        :private-members:
