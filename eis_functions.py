@@ -18,7 +18,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 
 import circuit_decomposition as cdp
 
-from errors import ParameterNameError, ParameterNumberError, ParameterValueError
+from errors import ParameterNameError, ParameterNumberError, ParameterValueError, FileTypeError
 
 import matplotlib.pyplot as plt
 from matplotlib import rcParams as rc
@@ -57,7 +57,24 @@ elif ARCHITECTURE == '64bit':
 
 SUMMARY_RESULT_FORMATTING = '%+.4e'
 
-PRM_NAMES = ['Names', 'Values', 'LBounds', 'UBounds', 'Fixed', 'LogRandomize', 'LogScan', 'Sign']
+PRM_NAMES = ['Names',
+             'Values',
+             'LBounds',
+             'UBounds',
+             'Fixed',
+             'LogRandomize',
+             'LogScan',
+             'Sign']
+PRM_NAME_ALIAS = ['Names',
+                  'Values',
+                  'Lower Limit',
+                  'Upper Limit',
+                  'Fixed',
+                  'Log. Rand.',
+                  'Log. Scan',
+                  'Sign']
+
+print len(PRM_NAME_ALIAS)
 PRM_FORMATS = [(np.str_, 32)] + 3*[np.float64] + [np.int32]*4
 PRM_FORMATS_STR = ['%s'] + [RESULT_FORMATTING] + ['%+.2e']*2 + 4*['%d']
 FIT_SETTING_EXT = 'FitSet'
@@ -208,7 +225,8 @@ def _get_exp_data(filepath):
         
         return f, ReZ, ImZ
     else:
-        raise Exception('FileType Error: File was not recognized')
+        message = 'Data file type was not recognized.'
+        raise FileTypeError(message)
 
 def _get_frequency_mask(f, f_limits):
 
@@ -237,6 +255,32 @@ def _get_frequency_mask(f, f_limits):
 
     return mask
 
+
+def _get_circuit_from_prm(filepath):
+
+    r"""
+
+    Get the electrical circuit from the parameter file.
+
+    Parameters
+    -----------
+    filepath: string
+        Path to the parameter file.
+
+    Returns
+    --------
+    circuit: string
+        String representation of the electrical circuit.
+
+    """
+
+    circuit = ''
+    with open(filepath, 'r') as fobj:
+        circuit = fobj.readline().replace(' ','').replace('\n','').replace('#','')
+
+    return circuit
+
+    
 def _import_prm_file(filepath):
 
     r"""
@@ -255,9 +299,7 @@ def _import_prm_file(filepath):
 
     """
 
-    npnames = PRM_NAMES
-    npformats = PRM_FORMATS
-    dtypes = np.dtype({'names':npnames, 'formats':npformats})
+    dtypes = np.dtype({'names':PRM_NAMES, 'formats':PRM_FORMATS})
 
     prmfilepath = os.path.abspath(filepath)
     prm_array = np.loadtxt(prmfilepath,\
@@ -611,7 +653,7 @@ def _get_distance(I_exp, I_calc):
         
         \Delta Re & = Re \, I_{exp} - Re \, I_{calc} \\
         \Delta Im & = Im \, I_{exp} - Im \, I_{calc} \\
-        D = \sum weights*(\Delta Re^2 + \Delta Im^2)
+        D & = \sum weights*(\Delta Re^2 + \Delta Im^2)
 
     Parameters
     ----------
@@ -929,7 +971,7 @@ def _get_results_array(f, I_exp_complex, I_calc_complex):
     return (header, data_array)
 
 
-def _save_results(run, process_id, fit_folder, datafilepath, circuit_str, f, mask, I_exp_complex, I_numeric,\
+def _save_results(circuit, run, process_id, fit_folder, datafilepath, circuit_str, f, mask, I_exp_complex, I_numeric,\
                   prm_user, prm_min_run, prm_end_run, distance_min_run, distance_end_run,\
                   minimization_results, header_minimization_results):
 
@@ -1008,7 +1050,7 @@ def _save_results(run, process_id, fit_folder, datafilepath, circuit_str, f, mas
 
     #save minimum
     filepath = '{0:s}/{1:s}-{2:s}-{3:d}-{4:d}-d{5:.4f}.{6:s}'.format(fit_folder, name, circuit_str, process_id, run+1, np.log10(distance_min_run), PRM_MIN_EXT)
-    np.savetxt(filepath, _update_prm(prm_min_run, prm_user), fmt=PRM_FORMATS_STR ,delimiter='\t' ,newline='\n', header='\t'.join(PRM_NAMES))
+    np.savetxt(filepath, _update_prm(prm_min_run, prm_user), fmt=PRM_FORMATS_STR ,delimiter='\t' ,newline='\n', header=circuit + '\n' + '\t'.join(PRM_NAMES))
 
     I_calc_complex = I_numeric(prm_min_run['Values'], w)
     header, data = _get_results_array(w[mask], I_exp_complex[mask], I_calc_complex[mask])
@@ -1023,7 +1065,7 @@ def _save_results(run, process_id, fit_folder, datafilepath, circuit_str, f, mas
 
     #save end
     filepath = '{0:s}/{1:s}-{2:s}-{3:d}-{4:d}-d{5:.4f}.{6:s}'.format(fit_folder, name, circuit_str, process_id, run+1, np.log10(distance_end_run), PRM_END_EXT)
-    np.savetxt(filepath, _update_prm(prm_end_run, prm_user), fmt=PRM_FORMATS_STR ,delimiter='\t' ,newline='\n', header='\t'.join(PRM_NAMES))
+    np.savetxt(filepath, _update_prm(prm_end_run, prm_user), fmt=PRM_FORMATS_STR ,delimiter='\t' ,newline='\n', header=circuit + '\n' + '\t'.join(PRM_NAMES))
 
     I_calc_complex = I_numeric(prm_end_run['Values'], w)
     header, data = _get_results_array(w[mask], I_exp_complex[mask], I_calc_complex[mask])
@@ -1508,6 +1550,8 @@ def _callback_fit(run, nb_run, fit, nb_minimization,\
               distance, valid,\
               LCC_results, prm_array, prm_user, additional_messages=[]):
 
+    #progressbar_length = 10.0
+
     os.system('cls' if os.name == 'nt' else 'clear')
 
     sys.stdout.write('***** Run = %d/%d ***** \n'  % (run+1, nb_run))
@@ -1515,6 +1559,8 @@ def _callback_fit(run, nb_run, fit, nb_minimization,\
     sys.stdout.write('Fit {0:03d}/{4:03d}-log10(D)={1:+09.4f}-Valid={2:b}-LCC={5:.6f},{6:.6f},{7:.6f},{8:.6f}\n'.format(fit+1, np.log10(distance), valid, run, nb_minimization,LCC_results[0], LCC_results[1],LCC_results[2],LCC_results[3]))
     prm = _update_prm(prm_array, prm_user)
     sys.stdout.write(str(prm)+'\n')
+    #progress = int(progressbar_length*(run+1)*(fit+1)/(nb_run*nb_minimization))
+    #sys.stdout.write(''.join(['#']*progress)+'\n')
     for i in additional_messages:
         sys.stdout.write(i+'\n')
     sys.stdout.flush()
@@ -1660,6 +1706,7 @@ def _initiliaze_minimization_array(nb_minimization, prm_user):
 
     return header_minimization_results, minimization_results
 
+
 def import_experimental_data(filepath):
 
     r"""
@@ -1696,6 +1743,7 @@ def import_experimental_data(filepath):
     I_exp_complex = ReZ+1j*ImZ
 
     return f, w, I_exp_complex
+
 
 def generate_calculated_values(circuit, prmfilepath, savefilepath,
                                immittance_type='Z',
@@ -2001,7 +2049,7 @@ def run_fit(circuit, datafilepath, prmfilepath,
             callback(run, nb_run_per_process, fit, nb_minimization,\
                      distance, valid,\
                      LCC_results, prm_end_run, prm_user, additional_messages=['Saving Results ...'])
-        _save_results(run, process_id, fit_folder, datafilepath, circuit_str, f, mask, I_exp_complex, I_num,\
+        _save_results(circuit, run, process_id, fit_folder, datafilepath, circuit_str, f, mask, I_exp_complex, I_num,\
                   prm_user, prm_min_run, prm_end_run, distance_min_run, distance_end_run,\
                   minimization_results, header_minimization_results)
 

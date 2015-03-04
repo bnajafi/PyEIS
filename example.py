@@ -15,7 +15,7 @@ eis_functions.generate_calculated_values(circuit=circuit,
                                          savefilepath=savefilepath,
                                          f_limits=f_limits,
                                          points_per_decade=10,
-                                         sigma=5.0)
+                                         sigma=5)
 
 f, Re, Im = np.loadtxt(savefilepath, usecols=(0,1,2), delimiter='\t', unpack=True)
 

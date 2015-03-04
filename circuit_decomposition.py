@@ -4,14 +4,12 @@
 Documentation
 """
 
-
 import sympy as sym
-from itertools import izip
-
+import itertools
 from errors import UnknownComponentError, DoubleSignError, BracketMismacthError, ImmittanceTypeError, ConnexionTypeError
 
 
-#CONSTANTS
+# CONSTANTS
 w = sym.symbols('w', real=True)
 p = sym.symbols('p', real=True)
 R = sym.Symbol('R', real=True)
@@ -33,39 +31,35 @@ PARAMETERS = p
 SUBCIRCUIT_NAME = 'Z_i'
 IMMITTANCE_TYPES = ['Z', 'Y']
 CONNEXION_TYPES = ['serie', 'parallel']
-ELECTROCHEMICAL_COMPONENTS = {'R':{'Z': R,\
-                                   'Y': 1.0/R},\
-                              
-                             'C':{'Z': -sym.I/(C*w),\
-                                  'Y': sym.I*C*w},\
-                              
-                             'L':{'Z':sym.I*L*w,\
-                                  'Y':-sym.I/(L*w)},\
-                              
-                             'Q':{'Z':1.0/(Q*w**n*sym.I**n),\
-                                  'Y':Q*w**n*sym.I**n},\
-                              
-                             'W':{'Z':W*(1-sym.I)/w**Nw,\
-                                  'Y':w**Nw/(W*(1-sym.I))},\
-                              
-                             'D':{'Z':D/((Td*sym.I*w)**Nd)*sym.tanh((Td*sym.I*w)**Nd),\
-                                  'Y':1.0/D*((Td*sym.I*w)**Nd)*sym.coth((Td*sym.I*w)**Nd)},\
-                              
-                              'M':{'Z':M/((Tm*sym.I*w)**Nm)*sym.coth((Tm*sym.I*w)**Nm),\
-                                  'Y':1.0/M*((Tm*sym.I*w)**Nm)*sym.tanh((Tm*sym.I*w)**Nm)},\
+ELECTROCHEMICAL_COMPONENTS = {'R': {'Z': R,
+                                    'Y': 1.0 / R},
+                              'C': {'Z': -sym.I / (C * w),
+                                    'Y': sym.I * C * w},
+                              'L': {'Z': sym.I * L * w,
+                                    'Y': -sym.I / (L * w)},
+                              'Q': {'Z': 1.0 / (Q * w ** n * sym.I ** n),
+                                    'Y': Q * w ** n * sym.I ** n},
+                              'W': {'Z': W * (1 - sym.I) / w ** Nw,
+                                    'Y': w ** Nw / (W * (1 - sym.I))},
+                              'D': {'Z': D / ((Td * sym.I * w) ** Nd) * sym.tanh((Td * sym.I * w) ** Nd),
+                                    'Y': 1.0 / D * ((Td * sym.I * w) ** Nd) * sym.coth((Td * sym.I * w) ** Nd)},
+                              'M': {'Z': M / ((Tm * sym.I * w) ** Nm) * sym.coth((Tm * sym.I * w) ** Nm),
+                                    'Y': 1.0 / M * ((Tm * sym.I * w) ** Nm) * sym.tanh((Tm * sym.I * w) ** Nm)},
                               }
 
 if SUBCIRCUIT_NAME[0] in ELECTROCHEMICAL_COMPONENTS.keys():
     SUBCIRCUIT_NAME[0] = 'E'
 
-ALLOWED_CHARACTERS=('R','C','Q','L','W', 'D', 'M',\
-                    '0','1','2','3','4','5','6','7','8','9',\
-                    '(',')','+','/','_',\
-                    'a','b','c','d','e','f','g','h','i','j','k','l','m',\
-                    'n','o','p','q','r','s','t','u','v','w','x','y','z')
+ALLOWED_CHARACTERS = ('R', 'C', 'Q', 'L', 'W', 'D', 'M',
+                      '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+                      '(', ')', '+', '/', '_',
+                      'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
+                      'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z')
+
 
 def _remove_space(circuit):
-    """
+
+    r"""
     The function removes the extra spaces in the electrical circuit.
 
     Parameters
@@ -79,12 +73,14 @@ def _remove_space(circuit):
     circuit : str
         Electrical circuit with no extra spaces.
     """
-    circuit = circuit.replace(' ','')
-    
+
+    circuit = circuit.replace(' ', '')
+
     return circuit
 
+
 def _remove_unallowed_characters(circuit):
-    """
+    r"""
     The function removes the unallowed characters of the electrical circuit and replaces them with '_'.
 
     Parameters
@@ -101,13 +97,12 @@ def _remove_unallowed_characters(circuit):
 
     for char in circuit:
         if char not in ALLOWED_CHARACTERS:
-            circuit = circuit.replace(char,'_')
+            circuit = circuit.replace(char, '_')
 
     return circuit
 
-def _check_unknown_components(circuit):
-    
 
+def _check_unknown_components(circuit):
     r"""
 
     The function checks if the circuit contains unknown elements i.e.
@@ -128,10 +123,8 @@ def _check_unknown_components(circuit):
         List of the unknown elements
 
     """
-    flag = False
-
-    circuit=circuit.replace('(','').replace(')','')
-    elements=[]
+    circuit = circuit.replace('(', '').replace(')', '')
+    elements = []
     unknown_elements = []
 
     for i_serie in circuit.split('+'):
@@ -148,10 +141,11 @@ def _check_unknown_components(circuit):
     else:
         flag = True
 
-    return (flag, unknown_elements)
+    return flag, unknown_elements
+
 
 def _check_double_signs(circuit):
-    """
+    r"""
     The function checks if the circuit contains two consecutive '+' or '/' operators.
 
     Parameters
@@ -162,31 +156,37 @@ def _check_double_signs(circuit):
     Returns
     -------
     True or False : bool
-
     """
     flag = False
-    N = len(circuit)
-    for k in range(0,N-1):
-        if (circuit[k] == '+' or circuit[k] == '/') and (circuit[k+1] == '+' or circuit[k+1] == '/'):
+    n = len(circuit)
+    for k in range(0, n - 1):
+        if (circuit[k] == '+' or circuit[k] == '/') and (circuit[k + 1] == '+' or circuit[k + 1] == '/'):
             flag = True
 
     return flag
 
-def _get_bracket_positions(circuit):
 
-    bracket_positions = []
+def _get_bracket_positions(circuit):
+    r"""
+    DocString
+    """
     brackets = []
 
     for ind, i in enumerate(circuit):
 
         if i == '(':
-            brackets.append(['O',ind])
+            brackets.append(['O', ind])
         elif i == ')':
-            brackets.append(['C',ind])
+            brackets.append(['C', ind])
 
     return brackets
 
+
 def _check_brackets(circuit):
+
+    r"""
+    DocString
+    """
 
     mismatch_flag = True
     bracket_flag = True
@@ -206,108 +206,127 @@ def _check_brackets(circuit):
                 closing += 1
 
         if opening == closing:
-            mismatch_flag = False    
+            mismatch_flag = False
 
-    return (bracket_flag, mismatch_flag, opening, closing)
-
-
-def _ImpedanceSerie(Z):
-
-    Zeq = 0
-    for z in Z:
-        Zeq += z
-
-    return Zeq
-    
-
-def _ImpedanceParallel(Z):
-
-    Zeq_ = 0
-    for z in Z:
-        Zeq_ += 1.0/z
-
-    Zeq = 1.0/Zeq_
-
-    return Zeq
+    return bracket_flag, mismatch_flag, opening, closing
 
 
-def _AdmittanceSerie(Y):
+def _impedance_serie(impedances):
 
-    Yeq_ = 0
-    for y in Y:
-        Yeq_ += 1.0/y
+    r"""
+    DocString
+    """
 
-    Yeq = 1.0/Yeq_
+    equivalent_impedance = 0
+    for z in impedances:
+        equivalent_impedance += z
 
-    return Yeq
-
-def _AdmittanceParallel(Y):
-
-    Yeq = 0
-    for y in Y:
-        Yeq += y
-
-    return Yeq
+    return equivalent_impedance
 
 
-def _get_equivalent_immitance(list_of_I, connexion = 'serie', I_type = 'Z', simplified = False):
+def _impedance_parallel(impedances):
 
-    Ieq = 0
+    r"""
+    DocString
+    """
+
+    equivalent_impedance = 0
+    for z in impedances:
+        equivalent_impedance += 1.0 / z
+
+    return 1.0 / equivalent_impedance
+
+
+def _admittance_serie(admittances):
+
+    r"""
+    DocString
+    """
+
+    equivalent_admittance = 0
+    for y in admittances:
+        equivalent_admittance += 1.0 / y
+
+    return 1.0 / equivalent_admittance
+
+
+def _admittance_parallel(admittance):
+
+    r"""
+    DocString
+    """
+
+    equivalent_admittance = 0
+    for y in admittance:
+        equivalent_admittance += y
+
+    return equivalent_admittance
+
+
+def _get_equivalent_immittance(immittances, connexion="serie", immittance_type="Z", simplified=False):
+
+    r"""
+    DocString
+    """
+
+    equivalent_immittance = 0
 
     if connexion not in CONNEXION_TYPES:
-        message = 'Unknown connexion type. Connexion types are {0:s}'.format(str(IMMITTANCE_TYPES))
+        message = "Unknown connexion type. Connexion types are {0:s}".format(str(IMMITTANCE_TYPES))
         raise ConnexionTypeError(message)
-    
+
     if connexion == 'serie':
-        if I_type == 'Z':
-            Ieq = _ImpedanceSerie(list_of_I)
-        elif I_type == 'Y':
-            Ieq = _AdmittanceSerie(list_of_I)
+        if immittance_type == 'Z':
+            equivalent_immittance = _impedance_serie(immittances)
+        elif immittance_type == 'Y':
+            equivalent_immittance = _admittance_serie(immittances)
 
-    elif connexion == 'parallel':
-        if I_type == 'Z':
-            Ieq = _ImpedanceParallel(list_of_I)
-        elif I_type == 'Y':
-            Ieq = _AdmittanceParallel(list_of_I)
+    elif connexion == "parallel":
+        if immittance_type == 'Z':
+            equivalent_immittance = _impedance_parallel(immittances)
+        elif immittance_type == 'Y':
+            equivalent_immittance = _admittance_parallel(immittances)
 
-        if simplified == True:
-            Ieq = sym.simplify(Ieq)
+        if simplified:
+            equivalent_immittance = sym.simplify(equivalent_immittance)
 
-    return Ieq
+    return equivalent_immittance
 
-def _get_element_immitance(element, subcircuits=list(), I_type = 'Z'):
 
-    I = 0
+def _get_element_immittance(element, subcircuits=list(), immittance_type="Z"):
+
+    r"""
+    DocString
+    """
+
     substitution_flag = False
 
     component = element[0]
     suffix = element[1:]
 
     if component in ELECTROCHEMICAL_COMPONENTS.keys():
-        I = ELECTROCHEMICAL_COMPONENTS[component][I_type]
+        element_immittance = ELECTROCHEMICAL_COMPONENTS[component][immittance_type]
         substitution_flag = True
-        
+
     elif len(subcircuits) != 0:
         element = element.replace(SUBCIRCUIT_NAME, 'subcircuits')
-        I = eval(element)
-        
+        element_immittance = eval(element)
+
     else:
-        message = 'Unknown element: {0:s}'.format(element)
+        message = "Unknown element: {0:s}".format(element)
         raise UnknownComponentError(message)
-        
-        
-    
-    if substitution_flag == True:
-        parameters, parameter_names = _get_parameters(I)
+
+    if substitution_flag:
+        parameters, parameter_names = _get_parameters(element_immittance)
         new_parameters = []
         for name in parameter_names:
             new_name = name + suffix
-            new_parameters.append(sym.Symbol(new_name, real = True))
+            new_parameters.append(sym.Symbol(new_name, real=True))
 
-        subs_dic = dict(izip(parameters, new_parameters))
-        I = I.subs(subs_dic)  
+        subs_dic = dict(itertools.izip(parameters, new_parameters))
+        element_immittance = element_immittance.subs(subs_dic)
 
-    return I
+    return element_immittance
 
 
 def _get_parameters(immittance):
@@ -315,164 +334,162 @@ def _get_parameters(immittance):
     parameters = []
     parameter_names = []
     list_of_symbols = list(immittance.atoms())
-    
+
     for i in list_of_symbols:
-        if isinstance(i,sym.Symbol):
-            if i.name[0] not in ['w','I']:
+        if isinstance(i, sym.Symbol):
+            if i.name[0] not in ['w', 'I']:
                 parameters.append(i)
                 parameter_names.append(i.name)
-                
-    return (parameters, parameter_names)
+
+    return parameters, parameter_names
 
 
-
-def _ElementaryCircuitImmitance(circuit, subcircuits=list(), immittance_type = 'Z', simplified = False):
-
-
+def _elementary_circuit_immittance(circuit, subcircuits=list(), immittance_type="Z", simplified=False):
+    r"""
+    DocString
+    """
     serie_elements = circuit.split('+')
-    serie_element_immitances = []
-
-    parallel_elements = []
-    parallel_element_immitances = []
-    
-    I = 0
+    serie_element_immittances = []
 
     if immittance_type in IMMITTANCE_TYPES:
 
         for serie_element in serie_elements:
 
             if '/' in serie_element:
-                
+
                 parallel_elements = serie_element.split('/')
-                parallel_element_immitances = []
+                parallel_element_immittances = []
 
                 for parallel_element in parallel_elements:
+                    i_parallel_element = _get_element_immittance(parallel_element,
+                                                                 subcircuits=subcircuits,
+                                                                 immittance_type=immittance_type)
+                    parallel_element_immittances.append(i_parallel_element)
 
-                    I_parallel_element = _get_element_immitance(parallel_element,\
-                                                                subcircuits = subcircuits,\
-                                                                I_type = immittance_type)
-                    parallel_element_immitances.append(I_parallel_element)
-                    
+                ieq_parallel = _get_equivalent_immittance(parallel_element_immittances,
+                                                          connexion='parallel',
+                                                          immittance_type=immittance_type,
+                                                          simplified=simplified)
+                serie_element_immittances.append(ieq_parallel)
 
-                Ieq_parallel = _get_equivalent_immitance(parallel_element_immitances,\
-                                                         connexion = 'parallel',\
-                                                         I_type = immittance_type,\
-                                                         simplified = simplified)
-                serie_element_immitances.append(Ieq_parallel)
-                
             else:
-                I_serie_element = _get_element_immitance(serie_element,\
-                                                         subcircuits = subcircuits,\
-                                                         I_type = immittance_type)
-                serie_element_immitances.append(I_serie_element)
+                i_serie_element = _get_element_immittance(serie_element,
+                                                          subcircuits=subcircuits,
+                                                          immittance_type=immittance_type)
+                serie_element_immittances.append(i_serie_element)
 
-        
-        I = _get_equivalent_immitance(serie_element_immitances,\
-                                      connexion = 'serie',\
-                                      I_type = immittance_type,\
-                                      simplified = simplified)
-            
+        elementary_immittance = _get_equivalent_immittance(serie_element_immittances,
+                                                           connexion='serie',
+                                                           immittance_type=immittance_type,
+                                                           simplified=simplified)
+
     else:
-        message = 'Unknown immitance type. Immittance types are {0:s}'.format(str(IMMITTANCE_TYPES))
+        message = "Unknown immitance type. Immittance types are {0:s}".format(str(IMMITTANCE_TYPES))
         raise ImmittanceTypeError(message)
 
-    return I
+    return elementary_immittance
 
 
-def _get_immittance_in_brackets(circuit, immittance_type = 'Z', simplified = False):
-
-
+def _get_immittance_in_brackets(circuit, immittance_type='Z', simplified=False):
     subcircuits = []
     subcircuit_immittances = []
 
     brackets = _get_bracket_positions(circuit)
     n = len(brackets)
     subcircuit_counter = 0
-    
+
     while n > 0:
-        for i in range(n-1):
-            if (brackets[i][0] == 'O') and (brackets[i+1][0] == 'C'):
+        for i in range(n - 1):
+            if (brackets[i][0] == 'O') and (brackets[i + 1][0] == 'C'):
                 break
-        start, end = brackets[i][1]+1, brackets[i+1][1]
-        
+        start, end = brackets[i][1] + 1, brackets[i + 1][1]
+
         subcircuit = circuit[start:end]
         subcircuits.append(subcircuit)
-        
-        subcircuit_immittance = _ElementaryCircuitImmitance(subcircuit,\
-                                                            subcircuits = subcircuit_immittances,\
-                                                            immittance_type = immittance_type,\
-                                                            simplified = simplified)
+
+        subcircuit_immittance = _elementary_circuit_immittance(subcircuit,
+                                                               subcircuits=subcircuit_immittances,
+                                                               immittance_type=immittance_type,
+                                                               simplified=simplified)
 
         subcircuit_immittances.append(subcircuit_immittance)
 
-        subcircuit_with_brackets = circuit[start-1: end+1] 
-        circuit = circuit.replace(subcircuit_with_brackets, '{0:s}[{1:d}]'.format(SUBCIRCUIT_NAME,\
+        subcircuit_with_brackets = circuit[start - 1: end + 1]
+        circuit = circuit.replace(subcircuit_with_brackets, '{0:s}[{1:d}]'.format(SUBCIRCUIT_NAME,
                                                                                   subcircuit_counter))
 
         brackets = _get_bracket_positions(circuit)
         n = len(brackets)
         subcircuit_counter += 1
 
-        
-    return (circuit, subcircuits, subcircuit_immittances)
+    return circuit, subcircuits, subcircuit_immittances
 
 
-def get_symbolic_immittance(circuit, immittance_type = 'Z',\
-                            simplified = False, elementary_circuit_output = False):
+def get_symbolic_immittance(circuit, immittance_type='Z',
+                            simplified=False, elementary_circuit_output=False):
+    r"""
+    DocString
+    """
 
-    I = 0
-    warning = ''
+    symbolic_immittance = 0
 
     circuit = _remove_space(circuit)
-    
+
     flag_double_sign = _check_double_signs(circuit)
 
-    if flag_double_sign == True:
-        warning = 'Doubled signs in the circuit.'
+    if flag_double_sign:
+        warning = "Doubled signs in the circuit."
         raise DoubleSignError(warning)
 
     else:
         flag_unknown_elements, unknown_elements = _check_unknown_components(circuit)
 
-        if flag_unknown_elements ==  True:
-            warning = 'Unknown elements were detected: {0:s}.'.format(str(unknown_elements))
+        if flag_unknown_elements:
+            warning = "Unknown elements were detected: {0:s}.".format(str(unknown_elements))
             raise UnknownComponentError(warning)
 
         else:
             circuit = _remove_unallowed_characters(circuit)
             bracket_flag, mismatch_flag, opening, closing = _check_brackets(circuit)
-            
-            if bracket_flag == True and mismatch_flag == True:
-                warning = 'Number of opening and closing brackets are not equal.'
+
+            if bracket_flag is True and mismatch_flag is True:
+                warning = "Number of opening and closing brackets are not equal."
                 raise BracketMismacthError(warning)
 
-            elif bracket_flag == True and mismatch_flag == False:
-                elementary_circuit, subcircuits, subcircuit_immittances = _get_immittance_in_brackets(circuit,\
-                                                                                                      immittance_type = immittance_type,\
-                                                                                                      simplified = simplified)
-                if elementary_circuit_output == True:
-                    print elementary_circuit
-                I = _ElementaryCircuitImmitance(elementary_circuit,\
-                                                subcircuits = subcircuit_immittances,\
-                                                immittance_type = immittance_type,\
-                                                simplified = simplified)
-            elif bracket_flag == False:
-                I= _ElementaryCircuitImmitance(circuit,\
-                                                subcircuits = [],\
-                                                immittance_type = immittance_type,\
-                                                simplified = simplified)
-                                                
+            elif bracket_flag is True and mismatch_flag is False:
 
-    return I
+                results = _get_immittance_in_brackets(circuit,
+                                                      immittance_type=immittance_type,
+                                                      simplified=simplified)
+
+                elementary_circuit, subcircuits, subcircuit_immittances = results
+
+                if elementary_circuit_output:
+                    print elementary_circuit
+                symbolic_immittance = _elementary_circuit_immittance(elementary_circuit,
+                                                                     subcircuits=subcircuit_immittances,
+                                                                     immittance_type=immittance_type,
+                                                                     simplified=simplified)
+            elif bracket_flag is False:
+                symbolic_immittance = _elementary_circuit_immittance(circuit,
+                                                                     subcircuits=[],
+                                                                     immittance_type=immittance_type,
+                                                                     simplified=simplified)
+
+    return symbolic_immittance
+
 
 def get_numeric_immittance(symbolic_immittance):
+    r"""
+    DocString
+    """
 
     parameters, parameter_names = _get_parameters(symbolic_immittance)
     nb_parameters = len(parameters)
     p_list = sym.symbols('p[0:{0:d}]'.format(nb_parameters), real=True)
 
     substitution_dict = {}
-    for parameter, p_i in izip(parameters, p_list):
+    for parameter, p_i in itertools.izip(parameters, p_list):
         substitution_dict[parameter] = p_i
 
     p_symbolic_immittance = symbolic_immittance.subs(substitution_dict, locals={})
@@ -482,16 +499,14 @@ def get_numeric_immittance(symbolic_immittance):
 
     return numeric_immittance
 
-if __name__ == '__main__':
 
+if __name__ == '__main__':
     circuit = 'R@el+(Cdl+((Rf+C)/Qdl))+(R/Q)'
     print('##### Test get_symbolic_immittance ####')
     print('Input Circuit: {0:s}'.format(circuit))
-    I = get_symbolic_immittance(circuit, immittance_type = 'Z', simplified = False)
-    sym.pprint( I)
+    I = get_symbolic_immittance(circuit, immittance_type='Z', simplified=False)
+    sym.pprint(I)
 
     I_num = get_numeric_immittance(I)
     print('Numeric Immittance:')
     print(I_num)
-
-    
