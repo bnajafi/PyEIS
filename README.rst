@@ -9,8 +9,15 @@ The documentation is still incomplete and the code is still under active develop
 
 How to install
 ---------------
+At this point, PyEIS cannot be installed as a standard python package. However, the core functions found in **circuit_decompostion.py** and **eis_functions** are usuable. Most errors are correctly handled and the documentation is 75% completed.
 
-Download the zip or tarball file and extract it locally. In your python script add the path to the PyEIS folder in order to be able to import modules.
+Download the zip or tarball file and extract it locally. In your python script, add the path to the PyEIS folder in order to be able to import modules.
+
+Numpy, Scipy, Sympy and Matplotlib are required dependencies:
+ * Numpy >1.8
+ * Scipy >0.14
+ * Sympy >0.7.5
+ * Matplotlib >1.2
 
 .. code-block:: python
 
