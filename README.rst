@@ -3,14 +3,12 @@ PyEIS
 
 Contains core functions for computing and fitting experimental data from Electrochemical Impedance Spectroscopy. 
 
-The functions are primarily aimed to be used in python scripts in order to automate the generation of calculated EIS data or fitting of experimental EIS data.
+The functions are primarily aimed to be used in python scripts in order to automate the computation of EIS data or fitting experimental data.
 
 The documentation is still incomplete and the code is still under active development.
 
 How to install
 ---------------
-At this point, PyEIS cannot be installed as a standard python package. However, the core functions found in **circuit_decompostion.py** and **eis_functions** are usuable. Most errors are correctly handled and the documentation is 75% completed.
-
 Download the zip or tarball file and extract it locally. In your python script, add the path to the PyEIS folder in order to be able to import modules.
 
 Numpy, Scipy, Sympy and Matplotlib are required dependencies:
@@ -27,7 +25,7 @@ Numpy, Scipy, Sympy and Matplotlib are required dependencies:
 Generating EIS data for a given circuit
 ----------------------------------------
 
-Let's compute the impedance of a simple electrical circuit: `Rel+Rct/Qdl`.
+Let's compute the impedance of a simple electrical circuit: `Rel+Rct/Qdl`. The computation function require a parameter file (the extension does not matter) which contains the information for each electrical component. 
 
 .. code-block:: python
 
