@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
 
 """
-Documentation
+This module contains all necessary functions for determining and instantiating the symbolic and numeric expressions of
+the immittance based on a electrical circuit provided as a string. The circuit is parsed in order to detect the
+electrical component and the different connexions i.e. series or parallel.
+
+
 """
 
 import sympy as sym
@@ -168,7 +172,12 @@ def _check_double_signs(circuit):
 
 def _get_bracket_positions(circuit):
     r"""
-    DocString
+    Find the positions of the opening and closing brackets.
+
+    Parameters
+    -----------
+    circuit: string
+        Electrical circuit.
     """
     brackets = []
 
@@ -185,7 +194,12 @@ def _get_bracket_positions(circuit):
 def _check_brackets(circuit):
 
     r"""
-    DocString
+    Check if brackets are present in the string representation of the electrical circuit. 
+
+    Parameters
+    -----------
+    circuit: string
+       Electrical circuit. 
     """
 
     mismatch_flag = True
@@ -214,7 +228,17 @@ def _check_brackets(circuit):
 def _impedance_serie(impedances):
 
     r"""
-    DocString
+    Get the equivalent impedance for in series impedances.
+
+    Parameters
+    -----------
+    impedances: list 
+        List of sympy expressions representing the impedances.
+
+    Returns
+    -------
+    equivalent_impedance: sympy expression
+        Equivalent impedance.
     """
 
     equivalent_impedance = 0
@@ -227,7 +251,17 @@ def _impedance_serie(impedances):
 def _impedance_parallel(impedances):
 
     r"""
-    DocString
+    Get the equivalent impedance for in parallel impedances.
+
+    Parameters
+    -----------
+    impedances: list 
+        List of sympy expressions representing the impedances.
+
+    Returns
+    -------
+    equivalent_impedance: sympy expression
+        Equivalent impedance.
     """
 
     equivalent_impedance = 0
@@ -240,7 +274,17 @@ def _impedance_parallel(impedances):
 def _admittance_serie(admittances):
 
     r"""
-    DocString
+    Get the equivalent admittance for in series impedances.
+
+    Parameters
+    -----------
+    impedances: list 
+        List of sympy expressions representing the admittances.
+
+    Returns
+    -------
+    equivalent_impedance: sympy expression
+        Equivalent admittance.
     """
 
     equivalent_admittance = 0
@@ -250,14 +294,24 @@ def _admittance_serie(admittances):
     return 1.0 / equivalent_admittance
 
 
-def _admittance_parallel(admittance):
+def _admittance_parallel(admittances):
 
     r"""
-    DocString
+    Get the equivalent admittance for in parallel admittances 
+
+    Parameters
+    ----------
+    admittances: list
+        List of sympy expressions representing the admittances.
+
+    Returns
+    -------
+    equivalent_impedance: sympy expression
+        Equivalent admittance.
     """
 
     equivalent_admittance = 0
-    for y in admittance:
+    for y in admittances:
         equivalent_admittance += y
 
     return equivalent_admittance
@@ -331,6 +385,10 @@ def _get_element_immittance(element, subcircuits=list(), immittance_type="Z"):
 
 def _get_parameters(immittance):
 
+    r"""
+    DocString
+    """
+
     parameters = []
     parameter_names = []
     list_of_symbols = list(immittance.atoms())
@@ -345,6 +403,7 @@ def _get_parameters(immittance):
 
 
 def _elementary_circuit_immittance(circuit, subcircuits=list(), immittance_type="Z", simplified=False):
+    
     r"""
     DocString
     """
@@ -391,6 +450,11 @@ def _elementary_circuit_immittance(circuit, subcircuits=list(), immittance_type=
 
 
 def _get_immittance_in_brackets(circuit, immittance_type='Z', simplified=False):
+
+    r"""
+    DocString
+    """
+
     subcircuits = []
     subcircuit_immittances = []
 

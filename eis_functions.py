@@ -74,7 +74,6 @@ PRM_NAME_ALIAS = ['Names',
                   'Log. Scan',
                   'Sign']
 
-print len(PRM_NAME_ALIAS)
 PRM_FORMATS = [(np.str_, 32)] + 3*[np.float64] + [np.int32]*4
 PRM_FORMATS_STR = ['%s'] + [RESULT_FORMATTING] + ['%+.2e']*2 + 4*['%d']
 FIT_SETTING_EXT = 'FitSet'
