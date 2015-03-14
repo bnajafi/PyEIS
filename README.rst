@@ -10,8 +10,11 @@ The documentation is still incomplete and the code is still under active develop
 
 How to install
 --------------
-Download the zip or tarball file and extract it locally. In your python script, add the path to the PyEIS folder
-in order to be able to import modules.
+Download the zip or tarball file and extract it locally. Install the package by using the setup.py file.
+
+.. code-block:: python
+
+    python setup.py instal
 
 Numpy, Scipy, Sympy and Matplotlib are required dependencies:
  * Numpy >1.8
