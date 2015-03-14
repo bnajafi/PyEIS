@@ -7,11 +7,12 @@ electrical component and the different connexions i.e. series or parallel.
 
 
 """
-
+import sys
 import sympy as sym
-import itertools
 from errors import UnknownComponentError, DoubleSignError, BracketMismacthError, ImmittanceTypeError, ConnexionTypeError
 
+if sys.version_info[0] == 2:
+     from itertools import izip as zip
 
 # CONSTANTS
 w = sym.symbols('w', real=True)
@@ -377,7 +378,7 @@ def _get_element_immittance(element, subcircuits=list(), immittance_type="Z"):
             new_name = name + suffix
             new_parameters.append(sym.Symbol(new_name, real=True))
 
-        subs_dic = dict(itertools.izip(parameters, new_parameters))
+        subs_dic = dict(zip(parameters, new_parameters))
         element_immittance = element_immittance.subs(subs_dic)
 
     return element_immittance
@@ -553,7 +554,7 @@ def get_numeric_immittance(symbolic_immittance):
     p_list = sym.symbols('p[0:{0:d}]'.format(nb_parameters), real=True)
 
     substitution_dict = {}
-    for parameter, p_i in itertools.izip(parameters, p_list):
+    for parameter, p_i in zip(parameters, p_list):
         substitution_dict[parameter] = p_i
 
     p_symbolic_immittance = symbolic_immittance.subs(substitution_dict, locals={})
