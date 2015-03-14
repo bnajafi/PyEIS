@@ -170,7 +170,7 @@ def _get_header_footer_par_file(filepath):
     return skip_header_counter, skip_footer_counter, nbpoints
 
 
-# noinspection PyPep8Naming
+# noinspection PyTypeChecker
 def _get_exp_data(filepath):
     r"""
 
@@ -221,15 +221,14 @@ def _get_exp_data(filepath):
             delimiter = ','
             converters = None
 
-        # noinspection PyTypeChecker
-        f, ReZ, ImZ = np.genfromtxt(fname=filepath, dtype=FLOAT, comments='#', delimiter=delimiter,
+        f, rez, imz = np.genfromtxt(fname=filepath, dtype=FLOAT, comments='#', delimiter=delimiter,
                                     skiprows=0, skip_header=skip_header, skip_footer=skip_footer,
                                     converters=converters, missing='', missing_values=None, filling_values=None,
                                     usecols=usecols, names=None, excludelist=None,
                                     deletechars=None, replace_space='_', autostrip=False, case_sensitive=True,
                                     defaultfmt='f%i', unpack=True, usemask=False, loose=True, invalid_raise=True)
 
-        return f, ReZ, ImZ
+        return f, rez, imz
     else:
         message = 'Data file type was not recognized.'
         raise FileTypeError(message)
@@ -1780,7 +1779,7 @@ def generate_calculated_values(circuit, prmfilepath, savefilepath,
         Path to the parameter file.
 
     savefilepath: string
-        Path the file where the data will be saved.
+        Path the file where the data will be saved. If a file already exists, the content will be deleted.
 
     immittance_type: string
         Type of immittance to be used for generating the symbolic and numeric expression.
