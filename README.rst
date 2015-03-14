@@ -6,8 +6,8 @@ Contains core functions for computing and fitting experimental data from Electro
 The functions are primarily aimed to be used in python scripts in order to automate the computation of EIS data or
 fitting experimental data.
 
-The documentation is 80% completed and the code is still under active development and great care is taken in avoiding
-backward incompatibility.
+The documentation is 80% completed and the code is still under active development. However, great care is taken
+in avoiding backward incompatibilities.
 
 How to install
 --------------
