@@ -6,7 +6,8 @@ Contains core functions for computing and fitting experimental data from Electro
 The functions are primarily aimed to be used in python scripts in order to automate the computation of EIS data or
 fitting experimental data.
 
-The documentation is still incomplete and the code is still under active development.
+The documentation is 80% completed and the code is still under active development and great care is taken in avoiding
+backward incompatibility.
 
 How to install
 --------------
@@ -21,11 +22,6 @@ Numpy, Scipy, Sympy and Matplotlib are required dependencies:
  * Scipy >0.14
  * Sympy >0.7.5
  * Matplotlib >1.2
-
-.. code-block:: python
-
-  import sys
-  sys.path.append('/path/to/the/PyEIS/folder/')
 
 Generating EIS data for a given circuit
 ---------------------------------------
