@@ -11,8 +11,11 @@ import sys
 import sympy as sym
 from errors import UnknownComponentError, DoubleSignError, BracketMismacthError, ImmittanceTypeError, ConnexionTypeError
 
+# Shadowing the built-in zip from Python 2.7
+# Compatibility with Python 3
 if sys.version_info[0] == 2:
-     from itertools import izip as zip
+    # noinspection PyShadowingBuiltins
+    from itertools import izip as zip
 
 # CONSTANTS
 w = sym.symbols('w', real=True)
@@ -35,7 +38,7 @@ VARIABLE = w
 PARAMETERS = p
 SUBCIRCUIT_NAME = 'Z_i'
 IMMITTANCE_TYPES = ['Z', 'Y']
-CONNEXION_TYPES = ['serie', 'parallel']
+CONNEXION_TYPES = ['series', 'parallel']
 ELECTROCHEMICAL_COMPONENTS = {'R': {'Z': R,
                                     'Y': 1.0 / R},
                               'C': {'Z': -sym.I / (C * w),
@@ -132,8 +135,8 @@ def _check_unknown_components(circuit):
     elements = []
     unknown_elements = []
 
-    for i_serie in circuit.split('+'):
-        for i_parallel in i_serie.split('/'):
+    for i_series in circuit.split('+'):
+        for i_parallel in i_series.split('/'):
             elements.append(i_parallel)
 
     for element in elements:
@@ -226,7 +229,7 @@ def _check_brackets(circuit):
     return bracket_flag, mismatch_flag, opening, closing
 
 
-def _impedance_serie(impedances):
+def _impedance_series(impedances):
 
     r"""
     Get the equivalent impedance for in series impedances.
@@ -272,7 +275,7 @@ def _impedance_parallel(impedances):
     return 1.0 / equivalent_impedance
 
 
-def _admittance_serie(admittances):
+def _admittance_series(admittances):
 
     r"""
     Get the equivalent admittance for in series impedances.
@@ -318,7 +321,7 @@ def _admittance_parallel(admittances):
     return equivalent_admittance
 
 
-def _get_equivalent_immittance(immittances, connexion="serie", immittance_type="Z", simplified=False):
+def _get_equivalent_immittance(immittances, connexion="series", immittance_type="Z", simplified=False):
 
     r"""
     DocString
@@ -330,11 +333,11 @@ def _get_equivalent_immittance(immittances, connexion="serie", immittance_type="
         message = "Unknown connexion type. Connexion types are {0:s}".format(str(IMMITTANCE_TYPES))
         raise ConnexionTypeError(message)
 
-    if connexion == 'serie':
+    if connexion == 'series':
         if immittance_type == 'Z':
-            equivalent_immittance = _impedance_serie(immittances)
+            equivalent_immittance = _impedance_series(immittances)
         elif immittance_type == 'Y':
-            equivalent_immittance = _admittance_serie(immittances)
+            equivalent_immittance = _admittance_series(immittances)
 
     elif connexion == "parallel":
         if immittance_type == 'Z':
@@ -408,16 +411,16 @@ def _elementary_circuit_immittance(circuit, subcircuits=list(), immittance_type=
     r"""
     DocString
     """
-    serie_elements = circuit.split('+')
-    serie_element_immittances = []
+    series_elements = circuit.split('+')
+    series_element_immittances = []
 
     if immittance_type in IMMITTANCE_TYPES:
 
-        for serie_element in serie_elements:
+        for series_element in series_elements:
 
-            if '/' in serie_element:
+            if '/' in series_element:
 
-                parallel_elements = serie_element.split('/')
+                parallel_elements = series_element.split('/')
                 parallel_element_immittances = []
 
                 for parallel_element in parallel_elements:
@@ -430,21 +433,21 @@ def _elementary_circuit_immittance(circuit, subcircuits=list(), immittance_type=
                                                           connexion='parallel',
                                                           immittance_type=immittance_type,
                                                           simplified=simplified)
-                serie_element_immittances.append(ieq_parallel)
+                series_element_immittances.append(ieq_parallel)
 
             else:
-                i_serie_element = _get_element_immittance(serie_element,
-                                                          subcircuits=subcircuits,
-                                                          immittance_type=immittance_type)
-                serie_element_immittances.append(i_serie_element)
+                i_series_element = _get_element_immittance(series_element,
+                                                           subcircuits=subcircuits,
+                                                           immittance_type=immittance_type)
+                series_element_immittances.append(i_series_element)
 
-        elementary_immittance = _get_equivalent_immittance(serie_element_immittances,
-                                                           connexion='serie',
+        elementary_immittance = _get_equivalent_immittance(series_element_immittances,
+                                                           connexion='series',
                                                            immittance_type=immittance_type,
                                                            simplified=simplified)
 
     else:
-        message = "Unknown immitance type. Immittance types are {0:s}".format(str(IMMITTANCE_TYPES))
+        message = "Unknown immittance type. Immittance types are {0:s}".format(str(IMMITTANCE_TYPES))
         raise ImmittanceTypeError(message)
 
     return elementary_immittance

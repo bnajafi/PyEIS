@@ -312,7 +312,7 @@ def _import_prm_file(filepath):
 
     # In Python 3, byte and str are two distinct types
     # np.loadtxt imports byte representation of the name column which looks like "b'Name'"
-    # --> should be fixed in futur numpy release
+    # --> should be fixed in future numpy release 1.10 (numpy website)
     # TODO Look up the release note of the next numpy release
     # work around consists of replacing b and single quotes
     if sys.version_info[0] == 3:
@@ -415,7 +415,7 @@ def _check_parameter_values(prm_array):
 
     mask, = np.where((prm_array['Sign'] != 1) & (prm_array['Sign'] != 0) & (prm_array['Sign'] != -1))
     if mask.size > 0:
-        message = 'Sign option can only be positive, negaive or both i.e. +1, 0 or -1.'
+        message = 'Sign option can only be positive, negative or both i.e. +1, 0 or -1.'
         raise ParameterValueError(message)
 
 
@@ -608,7 +608,7 @@ def _get_random_prm_values(prm_array, all_parameters=False):
         mask_not_valid = np.arange(mask_to_fit.size)
 
     # two sub 1d arrays 'values_to_fit' and 'Values' from prm_array field 'Values' are
-    # necesssary for updating values after calculations
+    # necessary for updating values after calculations
     # LBound, UBounds, LBounds and LogScan do not need subarrays -> only accessing values
     values_to_fit = prm_array['Values'][mask_to_fit]
     value = values_to_fit[mask_not_valid]
@@ -626,7 +626,7 @@ def _get_random_prm_values(prm_array, all_parameters=False):
     random_sign[random_sign == 0] = 1.0
 
     # in linear scale the random values are classically calculated by: value = low + random(0,1)*(up-low)
-    # in log scale the random values are calculated using the logarihmique values of the limits:
+    # in log scale the random values are calculated using the logarithmic values of the limits:
     # value = 10**( log10(low) + random(0,1)*(log10(up)-log(low)) )
     value[mask_linear] = lbounds[mask_linear] + np.random.random((mask_linear.size,)) * (
         ubounds[mask_linear] - lbounds[mask_linear])
@@ -970,6 +970,7 @@ def _get_results_array(f, immittance_exp_complex, immittance_calc_complex):
     return header, data_array
 
 
+# noinspection PyUnresolvedReferences
 def _save_results(circuit, run, process_id, fit_folder, datafilepath, circuit_str, f, mask,
                   immittance_exp_complex, immittance_num,
                   prm_user, prm_min_run, prm_end_run, distance_min_run, distance_end_run,
@@ -1132,7 +1133,7 @@ def _save_pdf(filepath,
     mod_exp, phase_exp, re_exp, im_exp = _get_complex_parameters(immittance_exp_complex, deg=True)
     mod_calc, phase_calc, re_calc, im_calc = _get_complex_parameters(immittance_calc_complex, deg=True)
 
-    # Nyqusit Plot - fitting range
+    # Nyquist Plot - fitting range
     plt.figure(figsize=(8, 6))
     plt.title(r'ReZ vs ImZ (fitting range)')
     plt.xlabel(r'ReZ /$\Omega$')
@@ -1148,7 +1149,7 @@ def _save_pdf(filepath,
     pdf.savefig()
     plt.close()
 
-    # Nyqusit Plot - full range
+    # Nyquist Plot - full range
     plt.figure(figsize=(8, 6))
     plt.title(r'ReZ vs ImZ (full range)')
     plt.xlabel(r'ReZ /$\Omega$')
@@ -1277,6 +1278,7 @@ def _save_pdf(filepath,
     pdf.close()
 
 
+# noinspection PyUnresolvedReferences,PyUnresolvedReferences,PyUnresolvedReferences,PyUnresolvedReferences
 def _get_summary(fit_folder, symbolic_immittance, numeric_immittance):
     r"""
 
@@ -1767,7 +1769,7 @@ def generate_calculated_values(circuit, prmfilepath, savefilepath,
     -----------
     circuit : string
         Expression of an electrical circuit (e.g. 'R1+R2/C2'). The operators '+' and '/' are used to symbolize
-        the serie or the parallel configuration.
+        the series or the parallel configuration.
         
         Electrical components can be resistors, capacitors, inductors, constant phase elements and diffusion
         (semi-infinite diffusion, convection-diffusion and constrained diffusion) elements.
@@ -1784,7 +1786,7 @@ def generate_calculated_values(circuit, prmfilepath, savefilepath,
         Type of immittance to be used for generating the symbolic and numeric expression.
         Can be impedance or admittance i.e. Z or Y.
 
-    f_limts: tuple of floats, optional
+    f_limits: tuple of floats, optional
         Frequency range for the minimization procedure i.e. (lowest_frequency, highest_frequency).
 
     points_per_decade: int
@@ -1859,7 +1861,7 @@ def generate_calculated_values(circuit, prmfilepath, savefilepath,
     np.savetxt(savefilepath, X=data, delimiter='\t', header='\t'.join(header_elements))
 
 
-# noinspection PyUnboundLocalVariable
+# noinspection PyUnboundLocalVariable,PyUnresolvedReferences,PyUnresolvedReferences,PyUnresolvedReferences
 def run_fit(circuit, datafilepath, prmfilepath,
             nb_run_per_process=3, nb_minimization=50,
             f_limits=None, init_types=('random', 'random', 'random'), immittance_type='Z',
@@ -1895,7 +1897,7 @@ def run_fit(circuit, datafilepath, prmfilepath,
     -----------
     circuit : string
         Expression of an electrical circuit (e.g. 'R1+R2/C2'). The operators '+' and '/' are used to symbolize
-        the serie or the parallel configuration.
+        the series or the parallel configuration.
         
         Electrical components can be resistors, capacitors, inductors, constant phase elements and diffusion
         (semi-infinite diffusion, convection-diffusion and constrained diffusion) elements.
@@ -1921,7 +1923,7 @@ def run_fit(circuit, datafilepath, prmfilepath,
         * after invalid parameters in minimization procedure: available options are random, user
         * for the following run i.e. run > 1: available options are random, user, min, end
 
-    f_limts: tuple of floats, optional
+    f_limits: tuple of floats, optional
         Frequency range for the minimization procedure i.e. (lowest_frequency, highest_frequency).
         If f_limits is None the limits are set to the lowest and highest experimental frequency.
 
