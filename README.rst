@@ -14,7 +14,7 @@ Download the zip or tarball file and extract it locally. Install the package by 
 
 .. code-block:: python
 
-    python setup.py instal
+    python setup.py install
 
 Numpy, Scipy, Sympy and Matplotlib are required dependencies:
  * Numpy >1.8
