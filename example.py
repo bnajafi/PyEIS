@@ -15,10 +15,12 @@ eis_functions.generate_calculated_values(circuit=circuit,
                                          savefilepath=savefilepath,
                                          f_limits=f_limits,
                                          points_per_decade=10,
-                                         sigma=5)
+                                         Re_relative_error=10.0,
+                                         Im_relative_error=10.0,
+                                         samples=1)
 
 f, Re, Im = np.loadtxt(savefilepath, usecols=(0,1,2), delimiter='\t', unpack=True)
-
+plt.figure()
 plt.plot(Re, Im, marker='o')
 plt.gca().set_aspect('equal')
 ymin, ymax = plt.ylim()
@@ -27,11 +29,11 @@ plt.ylim(ymax, ymin)
 plt.show()
 
 
-    
+# Fit the generated file
 datafilepath = savefilepath
     
 eis_functions.run_fit(circuit, datafilepath, prmfilepath,
-        nb_run_per_process=20, nb_minimization=50,
+        nb_run_per_process=3, nb_minimization=50,
         init_types=('random','random','random'), f_limits=f_limits, immittance_type = 'Z',
         root = './data/fit_results/', alloy='test', alloy_id='1',
         random_loops=200, process_id=1, simplified=False,

@@ -13,6 +13,7 @@ import platform
 import numpy as np
 from scipy.optimize import fmin
 from scipy.stats import linregress
+from scipy.stats import t
 
 from matplotlib.backends.backend_pdf import PdfPages
 
@@ -49,12 +50,19 @@ from matplotlib.ticker import AutoMinorLocator, AutoLocator, FuncFormatter
 
 
 #CONSTANTS
+
+# complex number are stored in two sets of the architecture bits
+# on 32 bits real and imaginary parts are in 32 bit float i.e.
+# the complex number is considered as 2*32bits=64bits floats
 ARCHITECTURE, OS = platform.architecture()
 if ARCHITECTURE == '32bit':
     RESULT_FORMATTING = '%+.8e'
+    FLOAT = np.float32
+    FLOAT_COMPLEX = np.complex64
 elif ARCHITECTURE == '64bit':
     RESULT_FORMATTING = '%+.16e'
-
+    FLOAT = np.float64
+    FLOAT_COMPLEX = np.complex128
 SUMMARY_RESULT_FORMATTING = '%+.4e'
 
 PRM_NAMES = ['Names',
@@ -74,7 +82,7 @@ PRM_NAME_ALIAS = ['Names',
                   'Log. Scan',
                   'Sign']
 
-PRM_FORMATS = [(np.str_, 32)] + 3*[np.float64] + [np.int32]*4
+PRM_FORMATS = [(np.str_, 32)] + 3*[FLOAT] + [np.int8]*4
 PRM_FORMATS_STR = ['%s'] + [RESULT_FORMATTING] + ['%+.2e']*2 + 4*['%d']
 FIT_SETTING_EXT = 'FitSet'
 PRM_INIT_EXT = 'PrmInit'
@@ -215,7 +223,7 @@ def _get_exp_data(filepath):
             delimiter=','
             converters=None
         
-        f, ReZ, ImZ = np.genfromtxt(fname=filepath, dtype=np.float64, comments='#', delimiter=delimiter,\
+        f, ReZ, ImZ = np.genfromtxt(fname=filepath, dtype=FLOAT, comments='#', delimiter=delimiter,\
                   skiprows=0, skip_header=skip_header, skip_footer=skip_footer,\
                   converters=converters, missing='', missing_values=None, filling_values=None,\
                   usecols=usecols, names=None, excludelist=None,\
@@ -638,7 +646,7 @@ def _get_random_prm_values(prm_array, all_parameters=False):
     return prm_array
 
 
-def _get_distance(I_exp, I_calc):
+def _get_distance(I_exp, I_calc, weights=None):
 
     r"""
 
@@ -678,7 +686,8 @@ def _get_distance(I_exp, I_calc):
     delta_Re = (Re_I_exp - Re_I_calc)
     delta_Im = (Im_I_exp - Im_I_calc)
 
-    weights = 1.0/mod_I_exp**2
+    if weights is None:
+        weights = 1.0/mod_I_exp**2
 
     D = np.sum(weights*(delta_Re**2 + delta_Im**2))
     
@@ -1342,7 +1351,7 @@ def _get_summary(fit_folder, symbolic_immittance, numeric_immittance):
     header += '\t'.join(prm_user['Names'])
     col = len(HEADER_MINIMIZATION_ELEMENTS) + prm_user['Names'].size
 
-    summary_end = np.zeros(shape = (run, col), dtype=np.float64)
+    summary_end = np.zeros(shape = (run, col), dtype=FLOAT)
     for ind, i in enumerate(PRM_end):
 
         prm = _import_prm_file(os.path.abspath(i))
@@ -1361,7 +1370,7 @@ def _get_summary(fit_folder, symbolic_immittance, numeric_immittance):
     np.savetxt(filepath, X=summary_end[mask_end], fmt=['%d','%d','%+.4f'] + [RESULT_FORMATTING]*(len(HEADER_MINIMIZATION_ELEMENTS)-3 + N), delimiter='\t', header=header)
     
     
-    summary_min = np.zeros(shape = (run, col), dtype=np.float64)
+    summary_min = np.zeros(shape = (run, col), dtype=FLOAT)
     for ind, i in enumerate(PRM_min):
 
         prm = _import_prm_file(os.path.abspath(i))
@@ -1701,7 +1710,7 @@ def _initiliaze_minimization_array(nb_minimization, prm_user):
     header_minimization_results = '\t'.join(HEADER_MINIMIZATION_ELEMENTS) + '\t'
     header_minimization_results += '\t'.join(prm_user['Names'])
     col = len(HEADER_MINIMIZATION_ELEMENTS) + prm_user['Names'].size
-    minimization_results = np.zeros(shape=(nb_minimization, col), dtype=np.float64)
+    minimization_results = np.zeros(shape=(nb_minimization, col), dtype=FLOAT)
 
     return header_minimization_results, minimization_results
 
@@ -1748,7 +1757,8 @@ def generate_calculated_values(circuit, prmfilepath, savefilepath,
                                immittance_type='Z',
                                f_limits = (1e-3, 1e6),
                                points_per_decade = 10,
-                               sigma=0.0):
+                               Re_relative_error=0.0, Im_relative_error=0.0,
+                               samples=100):
 
     r"""
 
@@ -1780,10 +1790,14 @@ def generate_calculated_values(circuit, prmfilepath, savefilepath,
     points_per_decade: int
         Number of points per decade for the frequency vector.
 
-    sigma: float
-        Standard deviation to be used for generating noisy values: 
-        :math:`I(\omega) = I_{calc}(\omega) + N(0, \sigma)`
-    
+    Re_relative_error: float, optional
+        Relative error for the real part for each frequency expressed in percentage.
+
+    Im_relative_error: float, optional
+        Relative error for the imaginary part for each frequency expressed in percentage.
+
+    samples: int, optional
+        Number of calculated values per frequency. It used to compute the confidence interval.
 
     """
 
@@ -1799,20 +1813,51 @@ def generate_calculated_values(circuit, prmfilepath, savefilepath,
     decades = np.absolute(logf_end - logf_start)
     f = np.logspace(logf_start, logf_end, points_per_decade*decades)
     w = 2*np.pi*f
+    
+    Re_array = np.zeros(shape=(w.size, samples+3), dtype=FLOAT)
+    Im_array = np.zeros(shape=(w.size, samples+3), dtype=FLOAT)
 
     I_calc_complex = I_num(prm_array['Values'], w)
+    mod, phase, Re, Im = _get_complex_parameters(I_calc_complex, deg=True)
 
-    I_calc_noisy = I_calc_complex + np.random.randn(w.size)*sigma
+    # The relative errors are taken as the 99% interval in normal distribution i.e. 3*sigma
+    # sigma(w) = relative_error*Re(w)/3.0
+    for i in range(samples):
+        Re_array [:,i] = Re * (1 + np.random.randn(w.size)*Re_relative_error/100.0/3.0)
+        Im_array [:,i]  = Im * (1 + np.random.randn(w.size)*Im_relative_error/100.0/3.0)
 
-    mod, phase, Re, Im = _get_complex_parameters(I_calc_noisy, deg=True)
+    dof = samples - 1
+    tvP=t.isf((1-0.99)/2,dof)
+    
+    Re_array[:,samples] = np.mean(Re_array[:,0:samples], axis=1)
+    Im_array[:,samples] = np.mean(Im_array[:,0:samples], axis=1)
 
-    header_elements = ['f /Hz',
-                       'Re{0:s}'.format(immittance_type),
-                       'Im{0:s}'.format(immittance_type),
-                       'Phase{0:s}'.format(immittance_type),\
-                       '|{0:s}|'.format(immittance_type)]
+    Re_array[:,samples+1] = np.std(Re_array[:,0:samples], axis=1, ddof=dof)/np.sqrt(samples)*tvP
+    Im_array[:,samples+1] = np.std(Im_array[:,0:samples], axis=1, ddof=dof)/np.sqrt(samples)*tvP
+   
+    Re_array[:,samples+2] = np.absolute(Re_array[:,samples+1]/Re_array[:,samples]*100.0)
+    Im_array[:,samples+2] = np.absolute(Im_array[:,samples+1]/Im_array[:,samples]*100.0)
 
-    data = np.vstack((f, Re, Im, phase, mod)).transpose()
+
+   
+    header_elements = [u'f /Hz',
+                       u'Re{0:s} /Ohms'.format(immittance_type),
+                       u'Im{0:s} /Ohms'.format(immittance_type),
+                       u'd_Re{0:s} /Ohms'.format(immittance_type),
+                       u'd_Im{0:s} /Ohms'.format(immittance_type),
+                       u'd_Re{0:s} /%'.format(immittance_type),
+                       u'd_Im{0:s} /%'.format(immittance_type)]
+
+    Re = Re_array[:,samples]
+    Im = Im_array[:,samples]
+
+    d_Re = Re_array[:,samples+1]
+    d_Im = Im_array[:,samples+1]
+
+    drel_Re =  np.ceil(Re_array[:,samples+2])
+    drel_Im = np.ceil(Im_array[:,samples+2])
+
+    data = np.vstack((f, Re, Im, d_Re, d_Im, drel_Re, drel_Im)).transpose()
     np.savetxt(savefilepath, X = data, delimiter='\t', header = '\t'.join(header_elements))
     
     
