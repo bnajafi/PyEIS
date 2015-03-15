@@ -1,11 +1,24 @@
 import eis_functions
+import circuit_decomposition as cdp
 
 import matplotlib.pyplot as plt
 import numpy as np
 
 
-# generate data for a given circuit
+# Decomposition of the circuit
+# Symbolic and numeric versions can be retrieved
+# Symbolic and numeric expressions can be used for further calculations
 circuit = 'Rel+Rct/Qdl'
+I = cdp.get_symbolic_immittance(circuit, immittance_type='Z', simplified=False)
+print(I)
+I_num = cdp.get_numeric_immittance(I)
+print('Numeric Immittance:')
+print(I_num)
+
+
+
+# generate data for a given circuit
+# calls the two previously mentioned functions
 prmfilepath = './data/test.PrmInit'
 savefilepath = './data/Generated_Data.data'
 f_limits = (1e-3, 1e9)
