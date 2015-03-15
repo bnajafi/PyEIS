@@ -1717,20 +1717,22 @@ def _initiliaze_minimization_array(nb_minimization, prm_user):
     return header_minimization_results, minimization_results
 
 
-def import_experimental_data(filepath):
+def import_experimental_data(filepath, immittance_type='Z'):
     r"""
 
-    Import experimental data and compute the complex immittance.
+    Import experimental data and compute the complex impedance.
 
     Supported files are .z files recorded by ZView software, .par files recorded by VersaStudio and .data files
     were the first three columns represent :math:`f`, :math:`ReZ`, :math:`ImZ`.
 
-    Frequencies, real and imaginary parts of the immittance are extracted from the files.
+    Frequencies, real and imaginary parts of the impedance are extracted from the files.
 
     Parameters
     -----------
     filepath: string
         Path to the experimental data file.
+    immittance_type: str, optional
+        Type of immittance to be imported. It can be impedance or admittance i.e. Z or Y.
 
     Returns
     --------
@@ -1749,6 +1751,9 @@ def import_experimental_data(filepath):
     f, rez, imz = _get_exp_data(datafilepath)
     w = 2 * np.pi * f
     immittance_exp_complex = rez + 1j * imz
+
+    if immittance_type == 'Y':
+        immittance_exp_complex = 1.0/immittance_type
 
     return f, w, immittance_exp_complex
 
@@ -2001,7 +2006,7 @@ def run_fit(circuit, datafilepath, prmfilepath,
 
     # import data
     datafilepath = os.path.abspath(datafilepath)
-    f, w, immittance_exp_complex = import_experimental_data(datafilepath)
+    f, w, immittance_exp_complex = import_experimental_data(datafilepath, immittance_type=immittance_type)
     mask = _get_frequency_mask(f, f_limits)
 
     # set the initialization types

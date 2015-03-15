@@ -6,9 +6,6 @@ EIS Functions
 .. currentmodule:: eis_functions
 .. automodule:: eis_functions
     :members:
-    :undoc-members:
-    :private-members:
-
 
 Errors Handling
 ---------------
@@ -16,5 +13,3 @@ Errors Handling
 .. currentmodule:: errors
 .. automodule:: errors
     :members:
-    :undoc-members:
-    :private-members:
