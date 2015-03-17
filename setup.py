@@ -8,7 +8,7 @@ import pyeis
 setup(
     name='PyEIS',
     version='0.2',
-    packages=['pyeis', 'pyeis.circuit_decomposition', 'py.eis_functions'],
+    packages=['pyeis'],
     include_package_data=True,
     url='https://github.com/MilanSkocic/PyEIS.git',
     download_url='https://github.com/MilanSkocic/PyEIS.git',
