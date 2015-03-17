@@ -3,16 +3,13 @@ try:
 except ImportError:
     from distutils.core import setup
 
-import os
-
-
-def read(fname):
-    return open(os.path.join(os.path.dirname(__file__), fname)).read()
+import pyeis
 
 setup(
     name='PyEIS',
     version='0.2',
-    py_modules=['eis_functions', 'circuit_decomposition', 'errors'],
+    packages=['pyeis', 'pyeis.circuit_decomposition', 'py.eis_functions'],
+    include_package_data=True,
     url='https://github.com/MilanSkocic/PyEIS.git',
     download_url='https://github.com/MilanSkocic/PyEIS.git',
     license='GNU GENERAL PUBLIC LICENSE',
@@ -23,7 +20,7 @@ setup(
     platforms=["Windows", "Linux", "Mac OS-X", "Unix"],
     description='Contains core functions for computing and fitting experimental data '
                 'from Electrochemical Impedance Spectroscopy.',
-    long_description=read('README.rst'),
+    long_description=pyeis.__doc__,
     install_requires=['numpy>1.8', 'scipy>0.14', 'sympy>0.7.4', 'matplotlib>1.3.0'],
     classifiers="""Development Status :: 1 - Planning
     Intended Audience :: Science/Research

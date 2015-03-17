@@ -1,0 +1,5 @@
+include data/*
+include documentation/source/*
+include documentation/make.bat
+include documentation/make.bat
+include example.py

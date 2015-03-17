@@ -1,8 +1,8 @@
-import eis_functions
-import circuit_decomposition as cdp
-
 import matplotlib.pyplot as plt
 import numpy as np
+
+import pyeis.circuit_decomposition as cdp
+import pyeis.eis_functions as eis_func
 
 
 # Decomposition of the circuit
@@ -15,22 +15,20 @@ I_num = cdp.get_numeric_immittance(I)
 print('Numeric Immittance:')
 print(I_num)
 
-
-
 # generate data for a given circuit
 # calls the two previously mentioned functions
 prmfilepath = './data/test.PrmInit'
 savefilepath = './data/Generated_Data.data'
 f_limits = (1e-3, 1e9)
 
-eis_functions.generate_calculated_values(circuit=circuit,
-                                         prmfilepath=prmfilepath,
-                                         savefilepath=savefilepath,
-                                         f_limits=f_limits,
-                                         points_per_decade=10,
-                                         re_relative_error=2.0,
-                                         im_relative_error=2.0,
-                                         samples=3)
+eis_func.generate_calculated_values(circuit=circuit,
+                                    prmfilepath=prmfilepath,
+                                    savefilepath=savefilepath,
+                                    f_limits=f_limits,
+                                    points_per_decade=10,
+                                    re_relative_error=2.0,
+                                    im_relative_error=2.0,
+                                    samples=3)
 
 f, Re, Im = np.loadtxt(savefilepath, usecols=(0, 1, 2), delimiter='\t', unpack=True)
 plt.figure()
@@ -60,7 +58,7 @@ fit_options = {'nb_run_per_process': 3,
                'random_loops': 200,
                'process_id': 1,
                'simplified': False,
-               'callback': eis_functions._callback_fit,
+               'callback': eis_func._callback_fit,
                'maxiter_per_parameter': 200,
                'maxfun_per_parameter': 200,
                'xtol': 1e-30,
@@ -70,4 +68,4 @@ fit_options = {'nb_run_per_process': 3,
                'disp': False,
                'fmin_callback': None}
     
-eis_functions.run_fit(circuit, datafilepath, prmfilepath, **fit_options)
+eis_func.run_fit(circuit, datafilepath, prmfilepath, **fit_options)

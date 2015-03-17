@@ -14,15 +14,13 @@ import numpy as np
 from scipy.optimize import fmin
 from scipy.stats import linregress
 from scipy.stats import t
-
 from matplotlib.backends.backend_pdf import PdfPages
-
-import circuit_decomposition as cdp
-
-from errors import ParameterNameError, ParameterNumberError, ParameterValueError, FileTypeError
-
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
+
+from pyeis import circuit_decomposition as cdp
+from pyeis.errors import ParameterNameError, ParameterNumberError, ParameterValueError, FileTypeError
+
 
 rcParams['figure.figsize'] = (8, 6)
 rcParams['savefig.dpi'] = 300
