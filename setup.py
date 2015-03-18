@@ -1,14 +1,14 @@
 try:
-    from setuptools import setup
+    from setuptools import setup, find_packages
 except ImportError:
     from distutils.core import setup
 
 import pyeis
 
 setup(
-    name='PyEIS',
+    name='PyEISs',
     version='0.2',
-    packages=['pyeis'],
+    packages=find_packages(),
     include_package_data=True,
     url='https://github.com/MilanSkocic/PyEIS.git',
     download_url='https://github.com/MilanSkocic/PyEIS.git',
@@ -21,7 +21,7 @@ setup(
     description='Contains core functions for computing and fitting experimental data '
                 'from Electrochemical Impedance Spectroscopy.',
     long_description=pyeis.__doc__,
-    install_requires=['numpy>1.8', 'scipy>0.14', 'sympy>0.7.4', 'matplotlib>1.3.0'],
+    install_requires=['numpy>1.8', 'scipy>0.14', 'sympy>0.7.4', 'matplotlib>1.3.0','docutils>=0.3'],
     classifiers="""Development Status :: 1 - Planning
     Intended Audience :: Science/Research
     Intended Audience :: Electrochemistry Engineers

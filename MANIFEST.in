@@ -1,0 +1,5 @@
+recursive-include data/*
+recursive-include documentation/source/*
+recursive-include documentation/make.bat
+recursive-include documentation/Makefile
+include example.py
