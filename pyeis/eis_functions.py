@@ -119,6 +119,9 @@ HEADER_MINIMIZATION_ELEMENTS = ['Nb of Run',
                                 'intercept Re',
                                 'intercept Im']
 
+# TODO Look up for Numpy 1.9.3, tanh issue for large complex number should be fixed
+
+
 def _tanh(z):
     """
     Fix Numpy issue for large complex number.
@@ -126,6 +129,7 @@ def _tanh(z):
     """
     return (1-np.exp(-2*z))/(1+np.exp(-2*z))
 
+# Shadowing the built-in function
 np.tanh = _tanh
 
 

@@ -9,7 +9,8 @@ electrical component and the different connexions i.e. series or parallel.
 """
 import sys
 import sympy as sym
-from pyeis.errors import UnknownComponentError, DoubleSignError, BracketMismacthError, ImmittanceTypeError, ConnexionTypeError
+from pyeis.errors import UnknownComponentError, DoubleSignError, BracketMismacthError
+from pyeis.errors import ImmittanceTypeError, ConnexionTypeError
 
 
 # Shadowing the built-in zip from Python 2.7
