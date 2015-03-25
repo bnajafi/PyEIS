@@ -6,7 +6,7 @@ except ImportError:
 import pyeis
 
 setup(
-    name='PyEISs',
+    name='PyEIS',
     version='0.2',
     packages=find_packages(),
     include_package_data=True,

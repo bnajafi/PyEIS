@@ -8,7 +8,7 @@ import pyeis.eis_functions as eis_func
 # Decomposition of the circuit
 # Symbolic and numeric versions can be retrieved
 # Symbolic and numeric expressions can be used for further calculations
-circuit = 'Rel+Rct/Qdl'
+circuit = 'Dox'
 I = cdp.get_symbolic_immittance(circuit, immittance_type='Z', simplified=False)
 print(I)
 I_num = cdp.get_numeric_immittance(I)
@@ -19,15 +19,14 @@ print(I_num)
 # calls the two previously mentioned functions
 prmfilepath = './data/test.PrmInit'
 savefilepath = './data/Generated_Data.data'
-f_limits = (1e-3, 1e9)
+f_limits = (50e-6, 1e6)
 
-eis_func.generate_calculated_values(circuit=circuit,
-                                    prmfilepath=prmfilepath,
+eis_func.generate_calculated_values(prmfilepath=prmfilepath,
                                     savefilepath=savefilepath,
                                     f_limits=f_limits,
-                                    points_per_decade=10,
-                                    re_relative_error=2.0,
-                                    im_relative_error=2.0,
+                                    points_per_decade=17,
+                                    re_relative_error=1.0,
+                                    im_relative_error=1.0,
                                     samples=3)
 
 f, Re, Im = np.loadtxt(savefilepath, usecols=(0, 1, 2), delimiter='\t', unpack=True)
@@ -68,4 +67,4 @@ fit_options = {'nb_run_per_process': 3,
                'disp': False,
                'fmin_callback': None}
     
-eis_func.run_fit(circuit, datafilepath, prmfilepath, **fit_options)
+eis_func.run_fit(datafilepath, prmfilepath, **fit_options)

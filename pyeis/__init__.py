@@ -106,3 +106,6 @@ See the file ``LICENSE`` for information on the history of this
 software, terms & conditions for usage, and a DISCLAIMER OF ALL
 WARRANTIES.
 """
+
+import eis_functions
+import circuit_decomposition

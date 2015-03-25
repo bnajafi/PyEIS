@@ -8,9 +8,7 @@ electrical component and the different connexions i.e. series or parallel.
 
 """
 import sys
-
 import sympy as sym
-
 from pyeis.errors import UnknownComponentError, DoubleSignError, BracketMismacthError, ImmittanceTypeError, ConnexionTypeError
 
 
@@ -53,8 +51,8 @@ ELECTROCHEMICAL_COMPONENTS = {'R': {'Z': R,
                               'W': {'Z': W * (1 - sym.I) / w ** Nw,
                                     'Y': w ** Nw / (W * (1 - sym.I))},
                               'D': {'Z': D / ((Td * sym.I * w) ** Nd) * sym.tanh((Td * sym.I * w) ** Nd),
-                                    'Y': 1.0 / D * ((Td * sym.I * w) ** Nd) * sym.coth((Td * sym.I * w) ** Nd)},
-                              'M': {'Z': M / ((Tm * sym.I * w) ** Nm) * sym.coth((Tm * sym.I * w) ** Nm),
+                                    'Y': 1.0 / D * ((Td * sym.I * w) ** Nd) * (1.0/sym.tanh((Td * sym.I * w) ** Nd))},
+                              'M': {'Z': M / ((Tm * sym.I * w) ** Nm) * (1.0/sym.tanh((Tm * sym.I * w) ** Nm)),
                                     'Y': 1.0 / M * ((Tm * sym.I * w) ** Nm) * sym.tanh((Tm * sym.I * w) ** Nm)},
                               }
 

@@ -119,6 +119,15 @@ HEADER_MINIMIZATION_ELEMENTS = ['Nb of Run',
                                 'intercept Re',
                                 'intercept Im']
 
+def _tanh(z):
+    """
+    Fix Numpy issue for large complex number.
+    Should be fixed in Numpy 1.9.3
+    """
+    return (1-np.exp(-2*z))/(1+np.exp(-2*z))
+
+np.tanh = _tanh
+
 
 def _get_header_footer_par_file(filepath):
     """
@@ -1751,13 +1760,13 @@ def import_experimental_data(filepath, immittance_type='Z'):
     immittance_exp_complex = rez + 1j * imz
 
     if immittance_type == 'Y':
-        immittance_exp_complex = 1.0/immittance_type
+        immittance_exp_complex = 1.0/immittance_exp_complex
 
     return f, w, immittance_exp_complex
 
 
 # noinspection PyTypeChecker
-def generate_calculated_values(circuit, prmfilepath, savefilepath,
+def generate_calculated_values(prmfilepath, savefilepath,
                                immittance_type='Z',
                                f_limits=(1e-3, 1e6),
                                points_per_decade=10,
@@ -1769,15 +1778,6 @@ def generate_calculated_values(circuit, prmfilepath, savefilepath,
 
     Parameters
     -----------
-    circuit : string
-        Expression of an electrical circuit (e.g. 'R1+R2/C2'). The operators '+' and '/' are used to symbolize
-        the series or the parallel configuration.
-        
-        Electrical components can be resistors, capacitors, inductors, constant phase elements and diffusion
-        (semi-infinite diffusion, convection-diffusion and constrained diffusion) elements.
-
-        The names of the components have to start with R, C, L, Q, W, D or M, respectively.
-
     prmfilepath: string
         Path to the parameter file.
 
@@ -1804,6 +1804,7 @@ def generate_calculated_values(circuit, prmfilepath, savefilepath,
         Number of calculated values per frequency. It used to compute the confidence interval.
 
     """
+    circuit = _get_circuit_from_prm(prmfilepath)
 
     # Symbolic Immittance
     immittance = cdp.get_symbolic_immittance(circuit, immittance_type=immittance_type, simplified=False)
@@ -1864,7 +1865,7 @@ def generate_calculated_values(circuit, prmfilepath, savefilepath,
 
 
 # noinspection PyUnboundLocalVariable,PyUnresolvedReferences,PyUnresolvedReferences,PyUnresolvedReferences
-def run_fit(circuit, datafilepath, prmfilepath,
+def run_fit(datafilepath, prmfilepath,
             nb_run_per_process=3, nb_minimization=50,
             f_limits=None, init_types=('random', 'random', 'random'), immittance_type='Z',
             root=None, alloy=None, alloy_id=None,
@@ -1897,15 +1898,6 @@ def run_fit(circuit, datafilepath, prmfilepath,
 
     Parameters
     -----------
-    circuit : string
-        Expression of an electrical circuit (e.g. 'R1+R2/C2'). The operators '+' and '/' are used to symbolize
-        the series or the parallel configuration.
-        
-        Electrical components can be resistors, capacitors, inductors, constant phase elements and diffusion
-        (semi-infinite diffusion, convection-diffusion and constrained diffusion) elements.
-
-        The names of the components have to start with R, C, L, Q, W, D or M, respectively.
-
     datafilepath: string
         Path to the data file.
 
@@ -1993,6 +1985,8 @@ def run_fit(circuit, datafilepath, prmfilepath,
 
 
     """
+    circuit = _get_circuit_from_prm(prmfilepath)
+
     # Symbolic Immittance
     immittance = cdp.get_symbolic_immittance(circuit, immittance_type=immittance_type, simplified=simplified)
     immittance_num = cdp.get_numeric_immittance(immittance)
