@@ -676,6 +676,9 @@ def _get_distance(immittance_exp, immittance_calc, weights=None):
     I_calc: 1d numpy array
         Contains the complex values of the :math:`I_{calc}`.
 
+    weights: 1d numpy array, optional
+        Weights to be used in the computation of the distance. By default, the experimental module is used.
+
     Returns
     -------
     D: float
