@@ -20,8 +20,8 @@ if sys.version_info[0] == 2:
     from itertools import izip as zip
 
 # CONSTANTS
-w = sym.symbols('w', real=True)
-p = sym.symbols('p', real=True)
+w = sym.Symbol('w', real=True)
+p = sym.Symbol('p', real=True)
 R = sym.Symbol('R', real=True)
 C = sym.Symbol('C', real=True)
 L = sym.Symbol('L', real=True)
