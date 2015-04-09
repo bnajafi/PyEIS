@@ -1069,7 +1069,7 @@ def _save_results(circuit, run, process_id, fit_folder, datafilepath, circuit_st
                header=circuit + '\n' + '\t'.join(PRM_NAMES))
 
     immittance_calc_complex = immittance_num(prm_min_run['Values'], w)
-    header, data = _get_results_array(w[mask], immittance_exp_complex[mask], immittance_calc_complex[mask])
+    header, data = _get_results_array(f[mask], immittance_exp_complex[mask], immittance_calc_complex[mask])
     filepath = '{0:s}/{1:s}-{2:s}-{3:d}-{4:d}-d{5:.4f}.{6:s}'.format(fit_folder, name, circuit_str, process_id, run + 1,
                                                                      np.log10(distance_min_run), DATA_MIN_EXT)
     np.savetxt(filepath, data, fmt=RESULT_FORMATTING, delimiter='\t', newline='\n', header=header)
@@ -1089,7 +1089,7 @@ def _save_results(circuit, run, process_id, fit_folder, datafilepath, circuit_st
                header=circuit + '\n' + '\t'.join(PRM_NAMES))
 
     immittance_calc_complex = immittance_num(prm_end_run['Values'], w)
-    header, data = _get_results_array(w[mask], immittance_exp_complex[mask], immittance_calc_complex[mask])
+    header, data = _get_results_array(f[mask], immittance_exp_complex[mask], immittance_calc_complex[mask])
     filepath = '{0:s}/{1:s}-{2:s}-{3:d}-{4:d}-d{5:.4f}.{6:s}'.format(fit_folder, name, circuit_str, process_id, run + 1,
                                                                      np.log10(distance_end_run), DATA_END_EXT)
     np.savetxt(filepath, data, fmt=RESULT_FORMATTING, delimiter='\t', newline='\n', header=header)
@@ -1149,6 +1149,7 @@ def _save_pdf(filepath,
     # Nyquist Plot - fitting range
     plt.figure(figsize=(8, 6))
     plt.title(r'ReZ vs ImZ (fitting range)')
+    plt.grid(which='major', axis='both')
     plt.xlabel(r'ReZ /$\Omega$')
     plt.ylabel(r'ImZ /$\Omega$')
     plt.gca().set_aspect('equal')
@@ -1165,6 +1166,7 @@ def _save_pdf(filepath,
     # Nyquist Plot - full range
     plt.figure(figsize=(8, 6))
     plt.title(r'ReZ vs ImZ (full range)')
+    plt.grid(which='major', axis='both')
     plt.xlabel(r'ReZ /$\Omega$')
     plt.ylabel(r'ImZ /$\Omega$')
     plt.gca().set_aspect('equal')
@@ -1181,6 +1183,8 @@ def _save_pdf(filepath,
     # Phase Plot - fitting range
     plt.figure(figsize=(8, 6))
     plt.title(r'$\theta$ vs f (fitting range)')
+    plt.grid(which='major', axis='both')
+    plt.grid(which='minor', axis='x')
     plt.xlabel(r'f /Hz')
     plt.ylabel(r'$\theta$ /$^{\circ}$')
     plt.xscale('log')
@@ -1196,6 +1200,8 @@ def _save_pdf(filepath,
     # Phase Plot - full range
     plt.figure(figsize=(8, 6))
     plt.title(r'$\theta$ vs f (full range)')
+    plt.grid(which='major', axis='both')
+    plt.grid(which='minor', axis='x')
     plt.xlabel(r'f /Hz')
     plt.ylabel(r'$\theta$ /$^{\circ}$')
     plt.xscale('log')
@@ -1211,6 +1217,8 @@ def _save_pdf(filepath,
     # Module Plot - fitting range
     plt.figure(figsize=(8, 6))
     plt.title(r'|Z| vs f (fitting range)')
+    plt.grid(which='major', axis='both')
+    plt.grid(which='minor', axis='both')
     plt.xlabel(r'f /Hz')
     plt.ylabel('|Z| /$\Omega$')
     plt.xscale('log')
@@ -1224,6 +1232,8 @@ def _save_pdf(filepath,
     # Module Plot - full range
     plt.figure(figsize=(8, 6))
     plt.title(r'|Z| vs f (full range)')
+    plt.grid(which='major', axis='both')
+    plt.grid(which='minor', axis='both')
     plt.xlabel(r'f /Hz')
     plt.ylabel('|Z| /$\Omega$')
     plt.xscale('log')
@@ -1234,6 +1244,7 @@ def _save_pdf(filepath,
     pdf.savefig()
     plt.close()
 
+    # Distance Plot
     plt.figure(figsize=(8, 6))
     mask_, = np.where(minimization_results[:, 0] != 0)
     mask_valid, = np.where(minimization_results[mask_, 1] == 1)
@@ -1242,11 +1253,30 @@ def _save_pdf(filepath,
     plt.plot(minimization_results[mask_valid, 0], minimization_results[mask_valid, 2], color='g', marker='o',
              linestyle='None', linewidth=1, mfc='w', mec='g', markeredgewidth=1, label='Valid')
     plt.title('log10(D) vs no fit')
+    plt.grid(which='major', axis='both')
     plt.xlabel('No of minimization')
     plt.ylabel('log(D)')
     plt.legend(loc='best')
     pdf.savefig()
     plt.close()
+
+    # FQ-Plot
+    # see B. A. Boukamp, “A package for impedance/admittance data analysis,”
+    # Solid State Ionics, vol. 18–19, no. Part 1, pp. 136–140, 1986.
+    # dRe/Re_exp, dIm/Im_exp vs f in log
+    plt.figure(figsize=(8, 6))
+    plt.plot(f[mask], data[:, 11]/mod_exp[mask]*100.0, 'ko', markersize=4, markeredgewidth=1, mfc='k', mec='k', label='$\Delta Re$')
+    plt.plot(f[mask], data[:, 12]/mod_exp[mask]*100.0, 'ko', markersize=4, markeredgewidth=1, mfc='w', mec='k', label='$\Delta Im$')
+    plt.title('FQ-Plot')
+    plt.grid(which='major', axis='both')
+    plt.grid(which='minor', axis='x')
+    plt.xscale('log')
+    plt.xlabel('f /Hz')
+    plt.ylabel(u'Relative Error /%')
+    plt.legend(loc='upper center', ncol=2)
+    pdf.savefig()
+    plt.close()
+
 
     # Residuals Re
     plt.figure(figsize=(8, 6))
@@ -1254,7 +1284,7 @@ def _save_pdf(filepath,
     plt.xlabel(r'$ReZ_{calc} - ReZ_{exp}$')
     plt.ylabel('Normalized Frequency')
     plt.hist(data[:, 11], bins=20, normed=True, weights=None, cumulative=False, bottom=None, histtype='bar',
-             align='mid', orientation='vertical', rwidth=None, log=False, color='b')
+             align='mid', orientation='vertical', rwidth=None, log=False, color='k')
     pdf.savefig()
     plt.close()
 
@@ -1264,7 +1294,7 @@ def _save_pdf(filepath,
     plt.xlabel(r'$ImZ_{calc} - ImZ_{exp}$')
     plt.ylabel('Normalized Frequency')
     plt.hist(data[:, 12], bins=20, normed=True, weights=None, cumulative=False, bottom=None, histtype='bar',
-             align='mid', orientation='vertical', rwidth=None, log=False, color='b')
+             align='mid', orientation='vertical', rwidth=None, log=False, color='k')
     pdf.savefig()
     plt.close()
 
@@ -1274,7 +1304,7 @@ def _save_pdf(filepath,
     plt.xlabel(r'$\theta_{calc} - \theta_{exp}$')
     plt.ylabel('Normalized Frequency')
     plt.hist(data[:, 10], bins=20, normed=True, weights=None, cumulative=False, bottom=None, histtype='bar',
-             align='mid', orientation='vertical', rwidth=None, log=False, color='b')
+             align='mid', orientation='vertical', rwidth=None, log=False, color='k')
     pdf.savefig()
     plt.close()
 
@@ -1284,7 +1314,7 @@ def _save_pdf(filepath,
     plt.xlabel(r'$|Z|_{calc} - |Z|_{exp}$')
     plt.ylabel('Normalized Frequency')
     plt.hist(data[:, 9], bins=20, normed=True, weights=None, cumulative=False, bottom=None, histtype='bar', align='mid',
-             orientation='vertical', rwidth=None, log=False, color='b')
+             orientation='vertical', rwidth=None, log=False, color='k')
     pdf.savefig()
     plt.close()
 
