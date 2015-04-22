@@ -14,6 +14,7 @@ import numpy as np
 from scipy.optimize import fmin
 from scipy.stats import linregress
 from scipy.stats import t
+from scipy.optimize.slsqp import approx_jacobian, _epsilon
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
@@ -59,10 +60,12 @@ if ARCHITECTURE == '64bit':
     FLOAT = np.float64
     FLOAT_COMPLEX = np.complex128
 
+ERROR_FORMATTING = '%+.2e'
 SUMMARY_RESULT_FORMATTING = '%+.4e'
 
 PRM_NAMES = ['Names',
              'Values',
+             'Error',
              'LBounds',
              'UBounds',
              'Fixed',
@@ -71,6 +74,7 @@ PRM_NAMES = ['Names',
              'Sign']
 PRM_NAME_ALIAS = ['Names',
                   'Values',
+                  'Error',
                   'Lower Limit',
                   'Upper Limit',
                   'Fixed',
@@ -79,8 +83,8 @@ PRM_NAME_ALIAS = ['Names',
                   'Sign']
 
 # noinspection PyTypeChecker
-PRM_FORMATS = [(np.str_, 32)] + 3 * [FLOAT] + [np.int8] * 4
-PRM_FORMATS_STR = ['%s'] + [RESULT_FORMATTING] + ['%+.2e'] * 2 + 4 * ['%d']
+PRM_FORMATS = [(np.str_, 32)] + 4 * [FLOAT] + [np.int8] * 4
+PRM_FORMATS_STR = ['%s'] + [RESULT_FORMATTING] + [ERROR_FORMATTING] + ['%+.2e'] * 2 + 4 * ['%d']
 FIT_SETTING_EXT = 'FitSet'
 PRM_INIT_EXT = 'PrmInit'
 PRM_END_EXT = 'PrmEnd'
@@ -703,6 +707,18 @@ def _get_distance(immittance_exp, immittance_calc, weights=None):
     return distance
 
 
+def _get_residuals(p, w, immittance_exp, immittance_num, weights=None):
+    if weights is None:
+        weights = 1.0/np.absolute(immittance_exp)
+    return np.absolute(immittance_num(p, w) - immittance_exp)*weights
+
+
+def _get_chi2(p, w, immittance_exp, immittance_num, weights=None):
+    return np.sum(_get_residuals(p, w, immittance_exp, immittance_num, weights=weights)**2)
+
+
+
+
 def _target_function(p, w, prm_array, immittance_exp, immittance_num):
     r"""
 
@@ -747,11 +763,11 @@ def _target_function(p, w, prm_array, immittance_exp, immittance_num):
     p0[mask_logscan] = 10 ** p0[mask_logscan]
     prm_array['Values'][mask_to_fit] = p0
 
-    immittance_calc = immittance_num(prm_array['Values'], w)
+    #immittance_calc = immittance_num(prm_array['Values'], w)
+    #distance = _get_distance(immittance_exp, immittance_calc)
 
-    distance = _get_distance(immittance_exp, immittance_calc)
+    return _get_chi2(prm_array['Values'], w, immittance_exp, immittance_num, weights=None)
 
-    return distance
 
 
 def _minimize(w, immittance_exp_complex, immittance_num, prm_array,
@@ -1527,6 +1543,8 @@ def _plot_summary(fit_folder):
             unit = '/$\Omega ^{-1} \cdot s^{n}$'
         elif name[0] in ['n', 'N']:
             unit = ''
+        elif name[0] in ['T']:
+            unit = 's'
         else:
             unit = ''
         fig = plt.figure()
@@ -1630,7 +1648,6 @@ def _callback_fit(run, nb_run, fit, nb_minimization,
 
 def _get_circuit_string(circuit):
     circuit_str = circuit.replace('+', '_s_').replace('/', '_p_')
-
     return circuit_str
 
 
@@ -1901,6 +1918,29 @@ def generate_calculated_values(prmfilepath, savefilepath,
     np.savetxt(savefilepath, X=data, delimiter='\t', header='\t'.join(header_elements))
 
 
+def _round_errors(errors):
+    r"""
+    The errors are rounded by keeping one significant figure.
+
+    ..seealso::  K. Protassov, Analyse statistique de données expérimentales, 1st ed. EDP Sciences, 2002.
+
+    Parameters
+    ----------
+    errors: 1d numpy array
+        Vector containing the errors to be rounded.
+
+    Returns
+    -------
+    errors: 1d numpy array
+        Vector containing the rounded errors.
+
+    """
+    log_errors = np.log10(errors)
+    log_errors = np.floor(log_errors)
+    errors = np.ceil(errors*10**(-log_errors))*10**log_errors
+    return errors
+
+
 # noinspection PyUnboundLocalVariable,PyUnresolvedReferences,PyUnresolvedReferences,PyUnresolvedReferences
 def run_fit(datafilepath, prmfilepath,
             nb_run_per_process=3, nb_minimization=50,
@@ -2031,12 +2071,15 @@ def run_fit(datafilepath, prmfilepath,
     # check and import parameters
     prm_user, prm_init, prm_array, prm_min_run, prm_end_run = _initiliaze_prm_arrays(immittance, prmfilepath)
     mask_to_fit = _get_mask_to_fit(prm_array)
-    n = mask_to_fit.size
+    Np = mask_to_fit.size
 
     # import data
     datafilepath = os.path.abspath(datafilepath)
     f, w, immittance_exp_complex = import_experimental_data(datafilepath, immittance_type=immittance_type)
     mask = _get_frequency_mask(f, f_limits)
+    N = mask.size
+    dof = N-Np
+    tvp = t.isf(0.05/2.0, N-Np)
 
     # set the initialization types
     init_type_0, init_type_validation, init_type_n = init_types
@@ -2097,7 +2140,7 @@ def run_fit(datafilepath, prmfilepath,
             prm_array, distance = _minimize(w=w[mask], immittance_exp_complex=immittance_exp_complex[mask],
                                             immittance_num=immittance_num,
                                             prm_array=prm_array,
-                                            maxiter=maxiter_per_parameter * n, maxfun=maxfun_per_parameter * n,
+                                            maxiter=maxiter_per_parameter*Np, maxfun=maxfun_per_parameter*Np,
                                             xtol=xtol, ftol=ftol,
                                             full_output=full_output, retall=retall, disp=disp, callback=fmin_callback)
 
@@ -2130,6 +2173,19 @@ def run_fit(datafilepath, prmfilepath,
                     distance_min_run = distance
                     prm_min_run[:] = prm_array[:]
 
+        prm_end_run['Error'][:] = _get_prm_error(prm_end_run['Values'],
+                                                 _get_residuals,
+                                                 _epsilon,
+                                                 w[mask],
+                                                 immittance_exp_complex[mask],
+                                                 immittance_num)
+        prm_min_run['Error'][:] = _get_prm_error(prm_min_run['Values'],
+                                                 _get_residuals,
+                                                 _epsilon,
+                                                 w[mask],
+                                                 immittance_exp_complex[mask],
+                                                 immittance_num)
+
         if callback is not None:
             callback(run, nb_run_per_process, fit, nb_minimization,
                      distance, valid,
@@ -2148,3 +2204,17 @@ def run_fit(datafilepath, prmfilepath,
     _get_summary(fit_folder, immittance, immittance_num)
     _plot_summary(fit_folder)
 
+
+def _get_prm_error(p, func, epsilon, *args):
+
+    N = args[0].size
+    Np = p.size
+    dof = N-Np
+    tvp = t.isf(0.05/2.0, N-Np)
+
+    J = approx_jacobian(p, func, epsilon, *args)
+    C = np.dual.inv(np.dot(J.T, J))
+    g = _get_chi2(p, *args)/dof
+    dp = _round_errors(np.sqrt(C.diagonal()*g)*tvp)
+
+    return dp
