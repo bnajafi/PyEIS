@@ -145,7 +145,7 @@ def _get_header_footer_par_file(filepath):
     Parameters
     ----------
     filepath: str
-        Absolute filepath of the *.par file.
+        Absolute filepath of the .par file.
         
     Returns
     -------
@@ -708,12 +708,68 @@ def _get_distance(immittance_exp, immittance_calc, weights=None):
 
 
 def _get_residuals(p, w, immittance_exp, immittance_num, weights=None):
+    r"""
+    Compute the weighted module of the residuals between calculated and experimental values.
+
+    Parameters
+    ----------
+    p: 1d numpy array
+        Contains the parameter values.
+
+    w: 1d numpy array
+        Angular frequencies for which the complex values of :math:`I` have to be calculated.
+
+    immittance_exp: 1d numpy array
+        Contains the complex values of the experimental immittance :math:`I`.
+
+    immittance_num: numpy ufunc
+        Lambdified immittance from the symbolic expression.
+
+    weights: 1d numpy array, optional
+        Weights to be used in the computation of the distance. By default, the experimental immittance is used.
+
+    Returns
+    -------
+    residuals: 1d numpy array
+        Contains the residuals for each angular frequency.
+    """
     if weights is None:
-        weights = 1.0/np.absolute(immittance_exp)
-    return np.absolute(immittance_num(p, w) - immittance_exp)*weights
+        weights = 1.0/immittance_exp
+    return np.absolute((immittance_num(p, w) - immittance_exp)*weights)
 
 
 def _get_chi2(p, w, immittance_exp, immittance_num, weights=None):
+    r"""
+    Compute the scalar :math:`\chi ^{2}` by computing the weighted module of the residuals between
+    calculated and experimental values.
+
+    .. math::
+
+        \chi ^{2} & = \sum \epsilon_{i}^{2} \\
+        \chi ^{2} & = \sum w_i^2 \vert I(p_k , \omega _{i}) - Iexp_i \vert ^2
+
+    Parameters
+    ----------
+    p: 1d numpy array
+        Contains the parameter values.
+
+    w: 1d numpy array
+        Angular frequencies for which the complex values of :math:`I` have to be calculated.
+
+    immittance_exp: 1d numpy array
+        Contains the complex values of the experimental immittance :math:`I`.
+
+    immittance_num: numpy ufunc
+        Lambdified immittance from the symbolic expression.
+
+    weights: 1d numpy array, optional
+        Weights to be used in the computation of the distance. By default, the experimental module is used.
+
+    Returns
+    -------
+   :math:`\chi ^{2}`: 1d numpy array
+        Scalar :math:`\chi ^{2}`.
+    """
     return np.sum(_get_residuals(p, w, immittance_exp, immittance_num, weights=weights)**2)
 
 
@@ -741,10 +797,10 @@ def _target_function(p, w, prm_array, immittance_exp, immittance_num):
     prm_array: 2d array
         Parameter array containing all necessary information of the parameters.
 
-    I_exp: 1d numpy array
+    immittance_exp: 1d numpy array
         Contains the complex values of the experimental immittance :math:`I`.
 
-    I_numeric: numpy ufunc
+    immittance_num: numpy ufunc
         Lambdified immittance from the symbolic expression.
     
     Returns
@@ -1345,7 +1401,7 @@ def _get_summary(fit_folder, symbolic_immittance, numeric_immittance):
 
     Compute the distance, the LCCs for the frequency range that was used for minimizing the target function.
 
-    The results are saved in 2 files: *.SumEnd, .SumMin.
+    The results are saved in 2 files: .SumEnd, .SumMin.
 
 
     Parameters
@@ -1969,7 +2025,7 @@ def run_fit(datafilepath, prmfilepath,
     The results for each run are finally summarized by listing the result files for parameters
     at the end and the minimum of each run.
     Compute the distance, the LCCs for the frequency range that was used for minimizing the target function.
-    The results are saved in 2 files: *.SumEnd, .SumMin.
+    The results are saved in 2 files: .SumEnd, .SumMin.
     The results are plotted and saved in 2 files: -0-End.pdf, -0-Min.pdf.
 
 
@@ -2113,7 +2169,6 @@ def run_fit(datafilepath, prmfilepath,
     for run in range(nb_run_per_process):
 
         if run == 0:
-
             if init_type_0 == 'random':
                 prm_array = _random_scan(w, prm_array, immittance_exp_complex, immittance, immittance_num,
                                          loops=random_loops)
@@ -2121,7 +2176,6 @@ def run_fit(datafilepath, prmfilepath,
                 prm_array[:] = prm_init[:]
         else:
             if init_type_n == 'random':
-                # prm_array = _get_random_prm_values(prm_array, all_parameters=True)
                 prm_array = _random_scan(w, prm_array, immittance_exp_complex, immittance, immittance_num,
                                          loops=random_loops)
             elif init_type_n == 'user':
@@ -2205,16 +2259,35 @@ def run_fit(datafilepath, prmfilepath,
     _plot_summary(fit_folder)
 
 
+# noinspection PyUnresolvedReferences
 def _get_prm_error(p, func, epsilon, *args):
+    r"""
+    Compute the errors of the parameters with interval confidence of 0.95 by estimating numerically the covariance
+    matrix using the Jacobian matrix.
+
+    Parameters
+    -----------
+    p: 1d numpy array
+        Vector containing the parameters values.
+    func: function
+        Function to be used for the numerical estimation of the Jacobian matrix
+    epsilon: float
+        Step to be used in the numerical estimation of the Jacobian.
+    args: tuple
+        Arguments to be passed to `func`.
+    """
 
     N = args[0].size
     Np = p.size
     dof = N-Np
     tvp = t.isf(0.05/2.0, N-Np)
 
-    J = approx_jacobian(p, func, epsilon, *args)
-    C = np.dual.inv(np.dot(J.T, J))
-    g = _get_chi2(p, *args)/dof
-    dp = _round_errors(np.sqrt(C.diagonal()*g)*tvp)
+    try:
+        J = approx_jacobian(p, func, epsilon, *args)
+        C = np.dual.inv(np.dot(J.T, J))
+        g = _get_chi2(p, *args)/dof
+        dp = _round_errors(np.sqrt(C.diagonal()*g)*tvp)
+    except np.linalg.LinAlgError as error:
+        dp = np.ones(shape=p.shape, dtype=FLOAT)*-1
 
     return dp
