@@ -6,7 +6,7 @@ Introduction
 ------------
 The tutorial is not ready yet.
 
-However, technical information about Impedance Spectroscopy are available elsewhere [#]_, [#]_, [#]_.
+However, technical information about Impedance Spectroscopy are available elsewhere [#]_ [#]_ [#]_.
 
 .. [#] J. R. Macdonald and W. B. Johnson, “Fundamentals of Impedance Spectroscopy,” in Impedance Spectroscopy, 2nd ed., E. Barsoukov and J. R. Macdonald, Eds. Hoboken, NJ, USA: John Wiley & Sons, Inc., 2005, pp. 1–26.
 .. [#] M. E. Orazem and B. Tribollet, Electrochemical Impedance Spectroscopy. John Wiley & Sons, Inc., 2008, pp. 1–523.
