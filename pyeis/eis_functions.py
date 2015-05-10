@@ -22,6 +22,7 @@ from matplotlib import rcParams
 from pyeis import circuit_decomposition as cdp
 from pyeis.errors import ParameterNameError, ParameterNumberError, ParameterValueError, FileTypeError
 
+import prettytable as ptb
 
 rcParams['figure.figsize'] = (8, 6)
 rcParams['savefig.dpi'] = 300
@@ -1676,31 +1677,37 @@ def _random_scan(w, prm_array, immittance_exp_complex, symbolic_immittance, nume
     return prm_array_random_min
 
 
-def _callback_fit(run, nb_run, fit, nb_minimization,
+def _callback_fit(filename, run, nb_run, fit, nb_minimization,
                   distance, valid,
                   lcc_results, prm_array, prm_user, additional_messages=''):
     # progressbar_length = 10.0
 
     os.system('cls' if os.name == 'nt' else 'clear')
 
-    sys.stdout.write('***** Run = %d/%d ***** \n' % (run + 1, nb_run))
+    sys.stdout.write(filename + '\n')
+    sys.stdout.write('***** Run = {0:02d}/{1:02d} ***** \n'.format(run + 1, nb_run))
     sys.stdout.write('Minimizing ...\n')
-    sys.stdout.write('Fit {0:03d}/{4:03d}'
-                     '-log10(D)={1:+09.4f}'
-                     '-Valid={2:b}'
-                     '-LCC={5:.6f},{6:.6f},{7:.6f},{8:.6f}\n'.format(fit + 1,
-                                                                     np.log10(
-                                                                         distance),
-                                                                     valid, run,
-                                                                     nb_minimization,
-                                                                     lcc_results[0],
-                                                                     lcc_results[1],
-                                                                     lcc_results[2],
-                                                                     lcc_results[3]))
+
+    general_tb = ptb.PrettyTable(['Fit', 'log10(D)', 'Valid'])
+    general_tb.add_row(['{0:03d}/{1:03d}'.format(fit+1, nb_minimization),
+                       '{0:+09.4f}'.format(np.log10(distance)),
+                       '{0:s}'.format(str(valid))])
+    sys.stdout.write(general_tb.get_string() + '\n')
+
+    lcc_tb = ptb.PrettyTable()
+    lcc_tb.add_column('',['Module', 'Phase', 'Re', 'Im'], align='l')
+    lcc_tb.add_column('LCC', lcc_results[0:4], align='l')
+    sys.stdout.write(lcc_tb.get_string() + '\n')
+
     prm = _update_prm(prm_array, prm_user)
-    sys.stdout.write(str(prm) + '\n')
-    # progress = int(progressbar_length*(run+1)*(fit+1)/(nb_run*nb_minimization))
-    # sys.stdout.write(''.join(['#']*progress)+'\n')
+    tb = ptb.PrettyTable()
+    tb.add_column('Names', prm['Names'], align='l')
+    tb.add_column('Values', prm['Values'], align='l')
+    tb.add_column('Errors', prm['Error'], align='l')
+    tb.add_column('Fixed', prm['Fixed'], align='l')
+    tb.add_column('LBounds', prm['LBounds'], align='l')
+    tb.add_column('UBounds', prm['UBounds'], align='l')
+    sys.stdout.write(tb.get_string() + '\n')
     for i in additional_messages:
         sys.stdout.write(i + '\n')
     sys.stdout.flush()
@@ -2010,7 +2017,7 @@ def run_fit(datafilepath, prmfilepath,
             maxiter_per_parameter=DEFAULT_MAXITER_PER_PARAMETER,
             maxfun_per_parameter=DEFAULT_MAXFUN_PER_PARAMETER,
             xtol=DEFAULT_XTOL, ftol=DEFAULT_FTOL,
-            full_output=True, retall=False, disp=False, fmin_callback=None, callback=None):
+            full_output=True, retall=False, disp=False, fmin_callback=None, callback=None, display=False):
     r"""
 
     `nb_run_per_process` will be started with the `init_types` initialization. `nb_minimization` will be performed by
@@ -2113,8 +2120,12 @@ def run_fit(datafilepath, prmfilepath,
 
     callback: callable, optional
         Called after each minimization, as
-        callback(run, nb_run_per_process, fit, nb_minimization, distance, valid, LCC_results, prm_end_run, prm_user,
-        additional_messages=[]).
+        callback(filename, run, nb_run_per_process, fit, nb_minimization, distance, valid, LCC_results,
+        prm_end_run, prm_user).
+
+    display: bool, optional
+        If set to True, the output for each minimization is displayed. A display function is passed to the callback.
+        Set it to False if you want to pass your own callback.
         
     Returns
     --------
@@ -2122,6 +2133,8 @@ def run_fit(datafilepath, prmfilepath,
 
 
     """
+    if display:
+        callback = _callback_fit
     circuit = _get_circuit_from_prm(prmfilepath)
 
     # Symbolic Immittance
@@ -2135,6 +2148,7 @@ def run_fit(datafilepath, prmfilepath,
 
     # import data
     datafilepath = os.path.abspath(datafilepath)
+    filename = os.path.basename(datafilepath)
     f, w, immittance_exp_complex = import_experimental_data(datafilepath, immittance_type=immittance_type)
     mask = _get_frequency_mask(f, f_limits)
     N = mask.size
@@ -2215,10 +2229,10 @@ def run_fit(datafilepath, prmfilepath,
             prm_end_run[:] = prm_array[:]
             distance_end_run = distance
 
+            args = (filename, run, nb_run_per_process, fit, nb_minimization, distance, valid,
+                    lcc_results, prm_array, prm_user)
             if callback is not None:
-                callback(run, nb_run_per_process, fit, nb_minimization,
-                         distance, valid,
-                         lcc_results, prm_array, prm_user)
+                callback(*args)
 
             if not valid:
                 if init_type_validation == 'random':
@@ -2245,7 +2259,7 @@ def run_fit(datafilepath, prmfilepath,
                                                  immittance_num)
 
         if callback is not None:
-            callback(run, nb_run_per_process, fit, nb_minimization,
+            callback(filename, run, nb_run_per_process, fit, nb_minimization,
                      distance, valid,
                      lcc_results, prm_end_run, prm_user, additional_messages=['Saving Results ...'])
         _save_results(circuit, run, process_id, fit_folder, datafilepath, circuit_str, f, mask,
@@ -2254,7 +2268,7 @@ def run_fit(datafilepath, prmfilepath,
                       minimization_results, header_minimization_results)
 
     if callback is not None:
-        callback(run, nb_run_per_process, fit, nb_minimization,
+        callback(filename, run, nb_run_per_process, fit, nb_minimization,
                  distance, valid,
                  lcc_results, prm_end_run, prm_user,
                  additional_messages=['Computing Summary ...'])
