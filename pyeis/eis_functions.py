@@ -123,17 +123,21 @@ HEADER_MINIMIZATION_ELEMENTS = ['Nb of Run',
                                 'intercept Re',
                                 'intercept Im']
 
-# TODO Look up for Numpy 1.9.3, tanh issue for large complex number should be fixed
+
 
 
 def _tanh(z):
+    # TODO Look up for Numpy 1.9.3, tanh issue for large complex number should be fixed
     """
     Fix Numpy issue for large complex number.
     Should be fixed in Numpy 1.9.3
+    This implementation should overflow for large -negative complex number
+    As EIS always uses positive angular frequencies, this implementation is fairly good work around.
     """
     return (1-np.exp(-2*z))/(1+np.exp(-2*z))
 
 # Shadowing the built-in function
+# Avoid overflowing for large complex numbers
 np.tanh = _tanh
 
 
