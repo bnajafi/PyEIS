@@ -66,7 +66,7 @@ SUMMARY_RESULT_FORMATTING = '%+.4e'
 
 PRM_NAMES = ['Names',
              'Values',
-             'Error',
+             'Errors',
              'LBounds',
              'UBounds',
              'Fixed',
@@ -1703,7 +1703,7 @@ def _callback_fit(filename, run, nb_run, fit, nb_minimization,
     tb = ptb.PrettyTable()
     tb.add_column('Names', prm['Names'], align='l')
     tb.add_column('Values', prm['Values'], align='l')
-    tb.add_column('Errors', prm['Error'], align='l')
+    tb.add_column('Errors', prm['Errors'], align='l')
     tb.add_column('Fixed', prm['Fixed'], align='l')
     tb.add_column('LBounds', prm['LBounds'], align='l')
     tb.add_column('UBounds', prm['UBounds'], align='l')
