@@ -14,7 +14,7 @@ import numpy as np
 from scipy.optimize import fmin
 from scipy.stats import linregress
 from scipy.stats import t
-from scipy.optimize.slsqp import approx_jacobian, _epsilon
+from scipy.optimize.slsqp import approx_jacobian
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
@@ -61,6 +61,8 @@ if ARCHITECTURE == '64bit':
     FLOAT = np.float64
     FLOAT_COMPLEX = np.complex128
 
+_EPSILON = np.sqrt(np.finfo(FLOAT).eps)
+
 ERROR_FORMATTING = '%+.2e'
 SUMMARY_RESULT_FORMATTING = '%+.4e'
 
@@ -75,7 +77,7 @@ PRM_NAMES = ['Names',
              'Sign']
 PRM_NAME_ALIAS = ['Names',
                   'Values',
-                  'Error',
+                  'Errors',
                   'Lower Limit',
                   'Upper Limit',
                   'Fixed',
@@ -2245,15 +2247,15 @@ def run_fit(datafilepath, prmfilepath,
                     distance_min_run = distance
                     prm_min_run[:] = prm_array[:]
 
-        prm_end_run['Error'][:] = _get_prm_error(prm_end_run['Values'],
+        prm_end_run['Errors'][:] = _get_prm_error(prm_end_run['Values'],
                                                  _get_residuals,
-                                                 _epsilon,
+                                                 _EPSILON,
                                                  w[mask],
                                                  immittance_exp_complex[mask],
                                                  immittance_num)
-        prm_min_run['Error'][:] = _get_prm_error(prm_min_run['Values'],
+        prm_min_run['Errors'][:] = _get_prm_error(prm_min_run['Values'],
                                                  _get_residuals,
-                                                 _epsilon,
+                                                 _EPSILON,
                                                  w[mask],
                                                  immittance_exp_complex[mask],
                                                  immittance_num)
