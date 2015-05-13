@@ -70,8 +70,8 @@ SUMMARY_RESULT_FORMATTING = '%+.4e'
 PRM_NAMES = ['Names',
              'Values',
              'Errors',
-             'LBounds',
-             'UBounds',
+             'Min',
+             'Max',
              'Fixed',
              'LogRandomize',
              'LogScan',
@@ -79,8 +79,8 @@ PRM_NAMES = ['Names',
 PRM_NAME_ALIAS = ['Names',
                   'Values',
                   'Errors',
-                  'Lower Limit',
-                  'Upper Limit',
+                  'Min',
+                  'Max',
                   'Fixed',
                   'Log. Rand.',
                   'Log. Scan',
@@ -403,17 +403,17 @@ def _check_parameter_values(prm_array):
         message = 'Parameter values must be different from 0.'
         raise ParameterValueError(message)
 
-    mask, = np.where(prm_array['LBounds'] == 0.0)
+    mask, = np.where(prm_array['Min'] == 0.0)
     if mask.size > 0:
         message = 'Lower bounds must be different from 0.'
         raise ParameterValueError(message)
 
-    mask, = np.where(prm_array['UBounds'] == 0.0)
+    mask, = np.where(prm_array['Max'] == 0.0)
     if mask.size > 0:
         message = 'Upper bounds must be different from 0.'
         raise ParameterValueError(message)
 
-    mask, = np.where(prm_array['LBounds'] >= prm_array['UBounds'])
+    mask, = np.where(prm_array['Min'] >= prm_array['Max'])
     if mask.size > 0:
         message = 'Lower bounds cannot be higher than upper bounds.'
         raise ParameterValueError(message)
@@ -480,10 +480,10 @@ def _get_mask_not_valid(prm_array):
     mask_to_fit = _get_mask_to_fit(prm_array)
 
     values = prm_array['Values'][mask_to_fit]
-    lbounds = prm_array['LBounds'][mask_to_fit]
-    ubounds = prm_array['UBounds'][mask_to_fit]
+    min_value = prm_array['Min'][mask_to_fit]
+    max_value = prm_array['Max'][mask_to_fit]
 
-    mask, = np.where((values > ubounds) | (values < lbounds))
+    mask, = np.where((values > max_value) | (values < min_value))
 
     return mask
 
@@ -629,11 +629,11 @@ def _get_random_prm_values(prm_array, all_parameters=False):
 
     # two sub 1d arrays 'values_to_fit' and 'Values' from prm_array field 'Values' are
     # necessary for updating values after calculations
-    # LBound, UBounds, LBounds and LogScan do not need subarrays -> only accessing values
+    # Min, Max and LogScan do not need subarrays -> only accessing values
     values_to_fit = prm_array['Values'][mask_to_fit]
     value = values_to_fit[mask_not_valid]
-    lbounds = prm_array['LBounds'][mask_to_fit][mask_not_valid]
-    ubounds = prm_array['UBounds'][mask_to_fit][mask_not_valid]
+    lbounds = prm_array['Min'][mask_to_fit][mask_not_valid]
+    ubounds = prm_array['Max'][mask_to_fit][mask_not_valid]
     lograndomize = prm_array['LogRandomize'][mask_to_fit][mask_not_valid]
     sign = prm_array['Sign'][mask_to_fit][mask_not_valid]
 
@@ -1704,8 +1704,8 @@ def _callback_fit(filename, run, nb_run, fit, nb_minimization,
     tb.add_column('Values', prm['Values'], align='l')
     tb.add_column('Errors', prm['Errors'], align='l')
     tb.add_column('Fixed', prm['Fixed'], align='l')
-    tb.add_column('LBounds', prm['LBounds'], align='l')
-    tb.add_column('UBounds', prm['UBounds'], align='l')
+    tb.add_column('Min', prm['Min'], align='l')
+    tb.add_column('Max', prm['Max'], align='l')
     sys.stdout.write(tb.get_string() + '\n')
     for i in additional_messages:
         sys.stdout.write(i + '\n')
@@ -2143,7 +2143,7 @@ def run_fit(datafilepath, prmfilepath,
     # check and import parameters
     prm_user, prm_init, prm_array, prm_min_run, prm_end_run = _initiliaze_prm_arrays(immittance, prmfilepath)
     mask_to_fit = _get_mask_to_fit(prm_array)
-    np = mask_to_fit.size
+    nb_param = mask_to_fit.size
 
     # import data
     datafilepath = os.path.abspath(datafilepath)
@@ -2208,7 +2208,8 @@ def run_fit(datafilepath, prmfilepath,
             prm_array, distance = _minimize(w=w[mask], immittance_exp_complex=immittance_exp_complex[mask],
                                             immittance_num=immittance_num,
                                             prm_array=prm_array,
-                                            maxiter=maxiter_per_parameter*np, maxfun=maxfun_per_parameter*np,
+                                            maxiter=maxiter_per_parameter*nb_param,
+                                            maxfun=maxfun_per_parameter*nb_param,
                                             xtol=xtol, ftol=ftol,
                                             full_output=full_output, retall=retall, disp=disp, callback=fmin_callback)
 
@@ -2292,8 +2293,8 @@ def _get_prm_error(p, func, epsilon, *args):
     """
 
     n = args[0].size
-    np = p.size
-    dof = n-np
+    nb_param = p.size
+    dof = n-nb_param
     tvp = t.isf(0.05/2.0, dof)
 
     try:
