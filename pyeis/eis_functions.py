@@ -15,6 +15,7 @@ from scipy.optimize import fmin
 from scipy.stats import linregress
 from scipy.stats import t
 from scipy.optimize.slsqp import approx_jacobian
+# TODO: Write custom approx_jacobian function for specific needs
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
@@ -86,7 +87,7 @@ PRM_NAME_ALIAS = ['Names',
                   'Sign']
 
 # noinspection PyTypeChecker
-PRM_FORMATS = [(np.str_, 32)] + 4 * [FLOAT] + [np.int8] * 4
+PRM_FORMATS = [(np.str_, 32)] + 4*[FLOAT] + [np.int8] * 4
 PRM_FORMATS_STR = ['%s'] + [RESULT_FORMATTING] + [ERROR_FORMATTING] + ['%+.2e'] * 2 + 4 * ['%d']
 FIT_SETTING_EXT = 'FitSet'
 PRM_INIT_EXT = 'PrmInit'
@@ -125,8 +126,6 @@ HEADER_MINIMIZATION_ELEMENTS = ['Nb of Run',
                                 'intercept Phase',
                                 'intercept Re',
                                 'intercept Im']
-
-
 
 
 def _tanh(z):
@@ -780,8 +779,6 @@ def _get_chi2(p, w, immittance_exp, immittance_num, weights=None):
     return np.sum(_get_residuals(p, w, immittance_exp, immittance_num, weights=weights)**2)
 
 
-
-
 def _target_function(p, w, prm_array, immittance_exp, immittance_num):
     r"""
 
@@ -826,11 +823,10 @@ def _target_function(p, w, prm_array, immittance_exp, immittance_num):
     p0[mask_logscan] = 10 ** p0[mask_logscan]
     prm_array['Values'][mask_to_fit] = p0
 
-    #immittance_calc = immittance_num(prm_array['Values'], w)
-    #distance = _get_distance(immittance_exp, immittance_calc)
+    # immittance_calc = immittance_num(prm_array['Values'], w)
+    # distance = _get_distance(immittance_exp, immittance_calc)
 
     return _get_chi2(prm_array['Values'], w, immittance_exp, immittance_num, weights=None)
-
 
 
 def _minimize(w, immittance_exp_complex, immittance_num, prm_array,
@@ -1344,8 +1340,10 @@ def _save_pdf(filepath,
     # Solid State Ionics, vol. 18–19, no. Part 1, pp. 136–140, 1986.
     # dRe/Re_exp, dIm/Im_exp vs f in log
     plt.figure(figsize=(8, 6))
-    plt.plot(f[mask], data[:, 11]/mod_exp[mask]*100.0, 'ko', markersize=4, markeredgewidth=1, mfc='k', mec='k', label='$\Delta Re$')
-    plt.plot(f[mask], data[:, 12]/mod_exp[mask]*100.0, 'ko', markersize=4, markeredgewidth=1, mfc='w', mec='k', label='$\Delta Im$')
+    plt.plot(f[mask], data[:, 11]/mod_exp[mask]*100.0, 'ko',
+             markersize=4, markeredgewidth=1, mfc='k', mec='k', label='$\Delta Re$')
+    plt.plot(f[mask], data[:, 12]/mod_exp[mask]*100.0, 'ko',
+             markersize=4, markeredgewidth=1, mfc='w', mec='k', label='$\Delta Im$')
     plt.title('FQ-Plot')
     plt.grid(which='major', axis='both')
     plt.grid(which='minor', axis='x')
@@ -1355,7 +1353,6 @@ def _save_pdf(filepath,
     plt.legend(loc='upper center', ncol=2)
     pdf.savefig()
     plt.close()
-
 
     # Residuals Re
     plt.figure(figsize=(8, 6))
@@ -1692,12 +1689,12 @@ def _callback_fit(filename, run, nb_run, fit, nb_minimization,
 
     general_tb = ptb.PrettyTable(['Fit', 'log10(D)', 'Valid'])
     general_tb.add_row(['{0:03d}/{1:03d}'.format(fit+1, nb_minimization),
-                       '{0:+09.4f}'.format(np.log10(distance)),
-                       '{0:s}'.format(str(valid))])
+                        '{0:+09.4f}'.format(np.log10(distance)),
+                        '{0:s}'.format(str(valid))])
     sys.stdout.write(general_tb.get_string() + '\n')
 
     lcc_tb = ptb.PrettyTable()
-    lcc_tb.add_column('',['Module', 'Phase', 'Re', 'Im'], align='l')
+    lcc_tb.add_column('', ['Module', 'Phase', 'Re', 'Im'], align='l')
     lcc_tb.add_column('LCC', lcc_results[0:4], align='l')
     sys.stdout.write(lcc_tb.get_string() + '\n')
 
@@ -2146,16 +2143,13 @@ def run_fit(datafilepath, prmfilepath,
     # check and import parameters
     prm_user, prm_init, prm_array, prm_min_run, prm_end_run = _initiliaze_prm_arrays(immittance, prmfilepath)
     mask_to_fit = _get_mask_to_fit(prm_array)
-    Np = mask_to_fit.size
+    np = mask_to_fit.size
 
     # import data
     datafilepath = os.path.abspath(datafilepath)
     filename = os.path.basename(datafilepath)
     f, w, immittance_exp_complex = import_experimental_data(datafilepath, immittance_type=immittance_type)
     mask = _get_frequency_mask(f, f_limits)
-    N = mask.size
-    dof = N-Np
-    tvp = t.isf(0.05/2.0, N-Np)
 
     # set the initialization types
     init_type_0, init_type_validation, init_type_n = init_types
@@ -2214,7 +2208,7 @@ def run_fit(datafilepath, prmfilepath,
             prm_array, distance = _minimize(w=w[mask], immittance_exp_complex=immittance_exp_complex[mask],
                                             immittance_num=immittance_num,
                                             prm_array=prm_array,
-                                            maxiter=maxiter_per_parameter*Np, maxfun=maxfun_per_parameter*Np,
+                                            maxiter=maxiter_per_parameter*np, maxfun=maxfun_per_parameter*np,
                                             xtol=xtol, ftol=ftol,
                                             full_output=full_output, retall=retall, disp=disp, callback=fmin_callback)
 
@@ -2248,17 +2242,17 @@ def run_fit(datafilepath, prmfilepath,
                     prm_min_run[:] = prm_array[:]
 
         prm_end_run['Errors'][:] = _get_prm_error(prm_end_run['Values'],
-                                                 _get_residuals,
-                                                 _EPSILON,
-                                                 w[mask],
-                                                 immittance_exp_complex[mask],
-                                                 immittance_num)
+                                                  _get_residuals,
+                                                  _EPSILON,
+                                                  w[mask],
+                                                  immittance_exp_complex[mask],
+                                                  immittance_num)
         prm_min_run['Errors'][:] = _get_prm_error(prm_min_run['Values'],
-                                                 _get_residuals,
-                                                 _EPSILON,
-                                                 w[mask],
-                                                 immittance_exp_complex[mask],
-                                                 immittance_num)
+                                                  _get_residuals,
+                                                  _EPSILON,
+                                                  w[mask],
+                                                  immittance_exp_complex[mask],
+                                                  immittance_num)
 
         if callback is not None:
             callback(filename, run, nb_run_per_process, fit, nb_minimization,
@@ -2297,17 +2291,18 @@ def _get_prm_error(p, func, epsilon, *args):
         Arguments to be passed to `func`.
     """
 
-    N = args[0].size
-    Np = p.size
-    dof = N-Np
-    tvp = t.isf(0.05/2.0, N-Np)
+    n = args[0].size
+    np = p.size
+    dof = n-np
+    tvp = t.isf(0.05/2.0, dof)
 
     try:
-        J = approx_jacobian(p, func, epsilon, *args)
-        C = np.dual.inv(np.dot(J.T, J))
+        jac = approx_jacobian(p, func, epsilon, *args)
+        cov = np.dual.inv(np.dot(jac.T, jac))
         g = _get_chi2(p, *args)/dof
-        dp = _round_errors(np.sqrt(C.diagonal()*g)*tvp)
+        dp = _round_errors(np.sqrt(cov.diagonal()*g)*tvp)
     except np.linalg.LinAlgError as error:
+        print error.message
         dp = np.ones(shape=p.shape, dtype=FLOAT)*-1
 
     return dp

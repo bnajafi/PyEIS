@@ -21,7 +21,8 @@ setup(
     description='Contains core functions for computing and fitting experimental data '
                 'from Electrochemical Impedance Spectroscopy.',
     long_description=pyeis.__doc__,
-    install_requires=['numpy>1.8', 'scipy>0.14', 'sympy>0.7.4', 'matplotlib>1.3.0','docutils>=0.3'],
+    install_requires=['numpy>1.8', 'scipy>0.14', 'sympy>0.7.4', 'matplotlib>1.3.0','docutils>=0.3',
+                      'prettytable'],
     classifiers="""Development Status :: 1 - Planning
     Intended Audience :: Science/Research
     Intended Audience :: Electrochemistry Engineers
