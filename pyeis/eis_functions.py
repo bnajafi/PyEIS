@@ -2242,6 +2242,11 @@ def run_fit(datafilepath, prmfilepath,
                     distance_min_run = distance
                     prm_min_run[:] = prm_array[:]
 
+        if callback is not None:
+            callback(filename, run, nb_run_per_process, fit, nb_minimization,
+                     distance, valid,
+                     lcc_results, prm_end_run, prm_user, ['Computing Covariance Matrix...'])
+
         prm_end_run['Errors'][:] = _get_prm_error(prm_end_run['Values'],
                                                   _get_residuals,
                                                   _EPSILON,
@@ -2258,7 +2263,8 @@ def run_fit(datafilepath, prmfilepath,
         if callback is not None:
             callback(filename, run, nb_run_per_process, fit, nb_minimization,
                      distance, valid,
-                     lcc_results, prm_end_run, prm_user, additional_messages=['Saving Results ...'])
+                     lcc_results, prm_end_run, prm_user, ['Saving Results...'])
+
         _save_results(circuit, run, process_id, fit_folder, datafilepath, circuit_str, f, mask,
                       immittance_exp_complex, immittance_num,
                       prm_user, prm_min_run, prm_end_run, distance_min_run, distance_end_run,
