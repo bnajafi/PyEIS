@@ -7,7 +7,7 @@ import pyeis
 
 setup(
     name='PyEIS',
-    version='0.2',
+    version='0.4',
     packages=find_packages(),
     include_package_data=True,
     url='https://github.com/MilanSkocic/PyEIS.git',
@@ -21,8 +21,8 @@ setup(
     description='Contains core functions for computing and fitting experimental data '
                 'from Electrochemical Impedance Spectroscopy.',
     long_description=pyeis.__doc__,
-    install_requires=['numpy>1.8', 'scipy>0.14', 'sympy>0.7.4', 'matplotlib>1.3.0','docutils>=0.3',
-                      'prettytable'],
+    install_requires=['numpy>=1.8', 'scipy>=0.14', 'sympy>=0.7.4', 'matplotlib>=1.3.0','docutils>=0.3',
+                      'prettytable>=0.7.2'],
     classifiers="""Development Status :: 1 - Planning
     Intended Audience :: Science/Research
     Intended Audience :: Electrochemistry Engineers
