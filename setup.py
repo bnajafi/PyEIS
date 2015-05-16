@@ -7,7 +7,7 @@ import pyeis
 
 setup(
     name='PyEIS',
-    version='0.4',
+    version=pyeis.__version__,
     packages=find_packages(),
     include_package_data=True,
     url='https://github.com/MilanSkocic/PyEIS.git',

@@ -106,6 +106,10 @@ See the file ``LICENSE`` for information on the history of this
 software, terms & conditions for usage, and a DISCLAIMER OF ALL
 WARRANTIES.
 """
+from __future__ import absolute_import
 
-import eis_functions
-import circuit_decomposition
+from . import eis_functions
+from . import circuit_decomposition
+from . import version
+
+__version__ = version
