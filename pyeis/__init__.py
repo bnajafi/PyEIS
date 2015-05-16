@@ -114,4 +114,3 @@ from . import version
 
 __version__ = version
 
-text='added in master'

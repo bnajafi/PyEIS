@@ -13,4 +13,3 @@ if isinstance(MICRO, str):
 elif isinstance(MICRO, int):
     version = '{:d}.{:d}.{:d}'.format(MAJOR, MINOR, MICRO)
 
-text='added in feature1, some more text'
