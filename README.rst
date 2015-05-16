@@ -18,10 +18,11 @@ Download the zip or tarball file and extract it locally. Install the package by 
     python setup.py install
 
 Numpy, Scipy, Sympy and Matplotlib are required dependencies:
- * Numpy >1.8
- * Scipy >0.14
- * Sympy >0.7.5
- * Matplotlib >1.2
+ * Numpy >=1.8
+ * Scipy >=0.14
+ * Sympy >=0.7.5
+ * Matplotlib >=1.2
+ * PrettyTables >=0.7.2
 
 License information
 -------------------
