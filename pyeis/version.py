@@ -13,4 +13,4 @@ if isinstance(MICRO, str):
 elif isinstance(MICRO, int):
     version = '{:d}.{:d}.{:d}'.format(MAJOR, MINOR, MICRO)
 
-text='master'
+text='master, add some more text'
