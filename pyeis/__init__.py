@@ -35,8 +35,8 @@ WARRANTIES.
 
 from __future__ import absolute_import
 
-from . import eis_functions
-from . import circuit_decomposition
+from . import eis_functions as eis
+from . import circuit_decomposition as cdp
 from . import version
 
 __version__ = version.version
