@@ -53,5 +53,4 @@ docs/_build/
 # PyBuilder
 target/
 
-**/data/
 **/.idea/
