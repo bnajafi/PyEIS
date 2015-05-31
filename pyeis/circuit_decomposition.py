@@ -535,7 +535,7 @@ def get_symbolic_immittance(circuit, immittance_type='Z',
                 elementary_circuit, subcircuits, subcircuit_immittances = results
 
                 if elementary_circuit_output:
-                    print elementary_circuit
+                    print(elementary_circuit)
                 symbolic_immittance = _elementary_circuit_immittance(elementary_circuit,
                                                                      subcircuits=subcircuit_immittances,
                                                                      immittance_type=immittance_type,
