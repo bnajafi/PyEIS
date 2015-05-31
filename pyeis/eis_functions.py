@@ -2300,7 +2300,7 @@ def _get_prm_error(p, func, epsilon, *args):
 
     n = args[0].size
     nb_param = p.size
-    dof = n-nb_param
+    dof = n-nb_param-1
     tvp = t.isf(0.05/2.0, dof)
 
     try:
@@ -2309,7 +2309,7 @@ def _get_prm_error(p, func, epsilon, *args):
         g = _get_chi2(p, *args)/dof
         dp = _round_errors(np.sqrt(cov.diagonal()*g)*tvp)
     except np.linalg.LinAlgError as error:
-        print error.message
+        print(error.message)
         dp = np.ones(shape=p.shape, dtype=FLOAT)*-1
 
     return dp
