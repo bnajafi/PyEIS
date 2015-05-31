@@ -2309,7 +2309,7 @@ def _get_prm_error(p, func, epsilon, *args):
         g = _get_chi2(p, *args)/dof
         dp = _round_errors(np.sqrt(cov.diagonal()*g)*tvp)
     except np.linalg.LinAlgError as error:
-        print error.message
+        print(error.message)
         dp = np.ones(shape=p.shape, dtype=FLOAT)*-1
 
     return dp
