@@ -134,7 +134,7 @@ def _tanh(z):
     Fix Numpy issue for large complex number.
     Should be fixed in Numpy 1.9.3
     This implementation should overflow for large -negative complex number
-    As EIS always uses positive angular frequencies, this implementation is fairly good work around.
+    As EIS always uses positive angular frequencies, this implementation is a fairly good work around.
     """
     return (1-np.exp(-2*z))/(1+np.exp(-2*z))
 
