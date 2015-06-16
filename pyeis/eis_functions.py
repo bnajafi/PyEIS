@@ -2302,7 +2302,8 @@ def _get_prm_error(p, func, epsilon, *args):
     nb_param = p.size
     dof = n-nb_param-1
     tvp = t.isf(0.05/2.0, dof)
-
+    if dof <= 0:
+        raise np.linalg.LinAlgError('Degree of freedom is lower or equal to zero. Too many parameters are fitted.')
     try:
         jac = approx_jacobian(p, func, epsilon, *args)
         cov = np.dual.inv(np.dot(jac.T, jac))
