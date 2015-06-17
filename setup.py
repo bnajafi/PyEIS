@@ -1,9 +1,13 @@
+import os
 try:
     from setuptools import setup, find_packages
 except ImportError:
     from distutils.core import setup
 
 import pyeis
+
+def read(fname):
+    return open(os.path.join(os.path.dirname(__file__), fname).read()
 
 setup(
     name='PyEIS',
@@ -20,7 +24,7 @@ setup(
     platforms=["Windows", "Linux", "Mac OS-X", "Unix"],
     description='Contains core functions for computing and fitting experimental data '
                 'from Electrochemical Impedance Spectroscopy.',
-    long_description=pyeis.__doc__,
+    long_description=read('README.rst'),
     install_requires=['numpy>=1.8', 'scipy>=0.14', 'sympy>=0.7.4', 'matplotlib>=1.3.0','docutils>=0.3',
                       'prettytable>=0.7.2'],
     classifiers="""Development Status :: 1 - Planning
