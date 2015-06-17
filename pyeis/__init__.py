@@ -2,10 +2,12 @@
 PyEIS
 =====
 
-Contains core functions for computing and fitting experimental data from Electrochemical Impedance Spectroscopy.
+Generate symbolic and lambda functions from the string representation of an electronic circuit in order to compute EIS data.
 
-The functions are primarily aimed to be used in python scripts in order to automate the computation of EIS data or
-fitting experimental data.
+The module aims to be make the computation of EIS data or fitting of experimental data easier and faster by abstracting
+the procedure of computing the analytic complex expressions of the immittance (Z(w) or Y(w)) and turning them into lambda functions.
+
+The module contains also a fully operational procedure for fitting experimental data. 
 
 The documentation is 80% completed and the code is still under active development. However, great care is taken
 in avoiding backward incompatibilities.
