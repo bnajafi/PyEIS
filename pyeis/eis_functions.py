@@ -215,7 +215,7 @@ def _get_exp_data(filepath):
     """
 
     name, ext = os.path.basename(os.path.abspath(filepath)).split('.')
-    extensions = ['z', 'par', 'data']
+    extensions = ['z', 'par', 'data', 'partxt']
 
     skip_header, skip_footer = 0, 0
     usecols = (0, 1, 2)
@@ -240,6 +240,12 @@ def _get_exp_data(filepath):
             skip_header, skip_footer, nbpoints = 11, 0, 0
             usecols = (0, 4, 5)
             delimiter = ','
+            converters = None
+
+        if ext.lower() == 'partxt':
+            skip_header, skip_footer, nbpoints = 0, 0, 0
+            usecols = (4, 6, 7)
+            delimiter = '\t'
             converters = None
 
         f, rez, imz = np.genfromtxt(fname=filepath, dtype=FLOAT, comments='#', delimiter=delimiter,
