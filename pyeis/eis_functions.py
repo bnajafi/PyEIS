@@ -113,7 +113,7 @@ HEADER_RESULT_ARRAY = [r'f /Hz',
 
 HEADER_MINIMIZATION_ELEMENTS = ['Nb of Run',
                                 'Valid',
-                                'np.log10(D)',
+                                'log10(D)',
                                 'LCC Module',
                                 'LCC Phase',
                                 'LCC Re',
@@ -1481,8 +1481,12 @@ def _get_summary(fit_folder, symbolic_immittance, numeric_immittance):
     header += '\t'.join(prm_user['Names'])
     col = len(HEADER_MINIMIZATION_ELEMENTS) + prm_user['Names'].size
 
-    summary_end = np.zeros(shape=(run, col), dtype=FLOAT)
+    header_dtypes = np.dtype({'names':header.split('\t'),
+                                  'formats':[(np.str_, 128)]+[FLOAT]*(len(header.split('\t'))-1)})
+
+    summary_end = np.zeros(shape = (run,), dtype=header_dtypes)
     for ind, i in enumerate(prm_end):
+        run_i, minimization_i = os.path.basename(i).split('-d')[0].split('-')[-2:]
         prm = _import_prm_file(os.path.abspath(i))
         prm_array = _update_prm(prm, prm_array)
         valid = _check_validity_prm(prm_array)
@@ -1491,17 +1495,18 @@ def _get_summary(fit_folder, symbolic_immittance, numeric_immittance):
         distance = _get_distance(immittance_exp_complex[mask], immittance_calc_complex[mask])
         lcc_results = _get_lcc(immittance_exp_complex[mask], immittance_calc_complex[mask])
 
-        summary_end[ind, :] = np.hstack((ind + 1, valid, np.log10(distance), lcc_results, prm['Values']))
-
+        summary_end[ind] = (run_i + '-' + minimization_i, valid, np.log10(distance)) \
+                           + tuple(lcc_results) + tuple(prm['Values'].tolist())
     # sort over the log10(D)
-    mask_end = np.argsort(summary_end[:, 2])
+    mask_end = np.argsort(summary_end['log10(D)'])
     filepath = os.path.abspath(result_folder + '/' + basename + '-' + circuit_str + '.' + SUMMARY_END_EXT)
     np.savetxt(filepath, X=summary_end[mask_end],
-               fmt=['%d', '%d', '%+.4f'] + [RESULT_FORMATTING] * (len(HEADER_MINIMIZATION_ELEMENTS) - 3 + n),
+               fmt=['%s', '%d', '%+.4f'] + [RESULT_FORMATTING] * (len(HEADER_MINIMIZATION_ELEMENTS) - 3 + n),
                delimiter='\t', header=header)
 
-    summary_min = np.zeros(shape=(run, col), dtype=FLOAT)
+    summary_min = np.zeros(shape = (run,), dtype=header_dtypes)
     for ind, i in enumerate(prm_min):
+        run_i, minimization_i = os.path.basename(i).split('-d')[0].split('-')[-2:]
         prm = _import_prm_file(os.path.abspath(i))
         prm_array = _update_prm(prm, prm_array)
         valid = _check_validity_prm(prm_array)
@@ -1510,13 +1515,13 @@ def _get_summary(fit_folder, symbolic_immittance, numeric_immittance):
         distance = _get_distance(immittance_exp_complex[mask], immittance_calc_complex[mask])
         lcc_results = _get_lcc(immittance_exp_complex[mask], immittance_calc_complex[mask])
 
-        summary_min[ind, :] = np.hstack((ind + 1, valid, np.log10(distance), lcc_results, prm['Values']))
-
+        summary_min[ind] = (run_i + '-' + minimization_i, valid, np.log10(distance)) \
+                           + tuple(lcc_results) + tuple(prm['Values'].tolist())
     # sort over the log10(D)
-    mask_end = np.argsort(summary_min[:, 2])
+    mask_min = np.argsort(summary_min['log10(D)'])
     filepath = os.path.abspath(result_folder + '/' + basename + '-' + circuit_str + '.' + SUMMARY_MIN_EXT)
-    np.savetxt(filepath, X=summary_min[mask_end],
-               fmt=['%d', '%d', '%+.4f'] + [RESULT_FORMATTING] * (len(HEADER_MINIMIZATION_ELEMENTS) - 3 + n),
+    np.savetxt(filepath, X=summary_min[mask_min],
+               fmt=['%s', '%d', '%+.4f'] + [RESULT_FORMATTING] * (len(HEADER_MINIMIZATION_ELEMENTS) - 3 + n),
                delimiter='\t', header=header)
 
 
@@ -1570,20 +1575,23 @@ def _plot_summary(fit_folder):
     circuit_str = circuit.replace('+', '_s_').replace('/', '_p_')
 
     prm_user = _import_prm_file(prm_user_filepath)
-
+    header = '\t'.join(HEADER_MINIMIZATION_ELEMENTS) + '\t'
+    header += '\t'.join(prm_user['Names'])
+    header_dtypes = np.dtype({'names':header.split('\t'),
+                                  'formats':[(np.str_, 128)]+[FLOAT]*(len(header.split('\t'))-1)})
     summary_end = np.loadtxt(summary_end_filepath, comments='#',
                              delimiter='\t',
                              skiprows=0,
                              ndmin=2,
-                             unpack=False)
-    mask_end = np.argsort(summary_end[:, 0])
+                             unpack=False,
+                             dtype=header_dtypes)
 
     summary_min = np.loadtxt(summary_min_filepath, comments='#',
                              delimiter='\t',
                              skiprows=0,
                              ndmin=2,
-                             unpack=False)
-    mask_min = np.argsort(summary_min[:, 0])
+                             unpack=False,
+                             dtype=header_dtypes)
 
     filepath = os.path.abspath(
         result_folder + '/' + basename + '-' + circuit_str + '-' + '0' + '-' + 'End' + '.' + 'pdf')
@@ -1594,8 +1602,8 @@ def _plot_summary(fit_folder):
 
     scilimits = (-4, 4)
 
-    params = summary_end[mask_end, len(HEADER_MINIMIZATION_ELEMENTS):]
-    no_run = summary_end[mask_end, 0]
+    row = summary_end.shape[0]
+    no_run = range(1, row+1)
     for ind, name in enumerate(prm_user['Names']):
         if name[0] in ['R', 'D', 'M']:
             unit = '/$\Omega$'
@@ -1620,12 +1628,15 @@ def _plot_summary(fit_folder):
         ax.set_title('{0:s} vs Run'.format(name))
         ax.set_xlabel('No Run')
         ax.set_ylabel(r'Values {1:s}'.format(name, unit))
-        ax.plot(no_run, params[:, ind], color='k', marker='o', mfc='w', mec='k', ls='-', lw=1, ms=4, mew=1)
+        ax.plot(no_run, summary_end[name], color='k', marker='o', mfc='w', mec='k', ls='-', lw=1, ms=4, mew=1)
+        ax.set_xticks(no_run)
+        ax.set_xticklabels(summary_end['Nb of Run'], fontsize=6, rotation=45)
+        ax.set_ylim(np.min(summary_end[name])*0.9, np.max(summary_end[name]*1.1))
         pdf_end.savefig(fig)
         plt.close(fig)
 
-    params = summary_min[mask_min, len(HEADER_MINIMIZATION_ELEMENTS):]
-    no_run = summary_min[mask_min, 0]
+    row = summary_min.shape[0]
+    no_run = range(1, row+1)
     for ind, name in enumerate(prm_user['Names']):
         if name[0] in ['R', 'D', 'M']:
             unit = '/$\Omega$'
@@ -1648,7 +1659,10 @@ def _plot_summary(fit_folder):
         ax.set_title('{0:s} vs Run'.format(name))
         ax.set_xlabel('No Run')
         ax.set_ylabel(r'Values {1:s}'.format(name, unit))
-        ax.plot(no_run, params[:, ind], color='k', marker='o', mfc='w', mec='k', ls='-', lw=1, ms=4, mew=1)
+        ax.plot(no_run, summary_min[name], color='k', marker='o', mfc='w', mec='k', ls='-', lw=1, ms=4, mew=1)
+        ax.set_xticks(no_run)
+        ax.set_xticklabels(summary_min['Nb of Run'], fontsize=6, rotation=45)
+        ax.set_ylim(np.min(summary_min[name])*0.9, np.max(summary_min[name]*1.1))
         pdf_min.savefig(fig)
         plt.close(fig)
 
