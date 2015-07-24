@@ -5,6 +5,7 @@ import sympy
 from . import circuit_decomposition as cdp
 from . import errors
 
+
 class CircuitSymbolicTest(unittest.TestCase):
 
     def setUp(self):
@@ -14,8 +15,8 @@ class CircuitSymbolicTest(unittest.TestCase):
         self.circuit = 'None'
 
     def test_isSymbol(self):
-        Zs = cdp.get_symbolic_immittance(self.circuit)
-        self.assertIsInstance(Zs, sympy.Add)
+        zs = cdp.get_symbolic_immittance(self.circuit)
+        self.assertIsInstance(zs, sympy.Add)
 
     def test_raiseUnknownElement(self):
         circuit = 'Sel+Cdl/(Rct+Wdl)'
@@ -26,6 +27,5 @@ class CircuitSymbolicTest(unittest.TestCase):
         self.assertRaises(errors.BracketMismacthError, cdp.get_symbolic_immittance, circuit)
 
 if __name__ == '__main__':
-    unittest.main()
-    suite = unittest.TestLoader().loadTestsFromTestCase(TestStringMethods)
+    suite = unittest.TestLoader().loadTestsFromTestCase(CircuitSymbolicTest)
     unittest.TextTestRunner(verbosity=2).run(suite)

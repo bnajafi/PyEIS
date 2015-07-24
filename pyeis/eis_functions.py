@@ -87,7 +87,7 @@ PRM_NAME_ALIAS = ['Names',
                   'Sign']
 
 # noinspection PyTypeChecker
-PRM_FORMATS = [(np.str_, 32)] + 4*[FLOAT] + [np.int8] * 4
+PRM_FORMATS = [(np.str_, 32)] + 4 * [FLOAT] + [np.int8] * 4
 PRM_FORMATS_STR = ['%s'] + [RESULT_FORMATTING] + [ERROR_FORMATTING] + ['%+.2e'] * 2 + 4 * ['%d']
 FIT_SETTING_EXT = 'FitSet'
 PRM_INIT_EXT = 'PrmInit'
@@ -136,7 +136,8 @@ def _tanh(z):
     This implementation should overflow for large -negative complex number
     As EIS always uses positive angular frequencies, this implementation is a fairly good work around.
     """
-    return (1-np.exp(-2*z))/(1+np.exp(-2*z))
+    return (1 - np.exp(-2 * z)) / (1 + np.exp(-2 * z))
+
 
 # Shadowing the built-in function
 # Avoid overflowing for large complex numbers
@@ -746,8 +747,8 @@ def _get_residuals(p, w, immittance_exp, immittance_num, weights=None):
         Contains the residuals for each angular frequency.
     """
     if weights is None:
-        weights = 1.0/immittance_exp
-    return np.absolute((immittance_num(p, w) - immittance_exp)*weights)
+        weights = 1.0 / immittance_exp
+    return np.absolute((immittance_num(p, w) - immittance_exp) * weights)
 
 
 def _get_chi2(p, w, immittance_exp, immittance_num, weights=None):
@@ -782,7 +783,7 @@ def _get_chi2(p, w, immittance_exp, immittance_num, weights=None):
    :math:`\chi ^{2}`: 1d numpy array
         Scalar :math:`\chi ^{2}`.
     """
-    return np.sum(_get_residuals(p, w, immittance_exp, immittance_num, weights=weights)**2)
+    return np.sum(_get_residuals(p, w, immittance_exp, immittance_num, weights=weights) ** 2)
 
 
 def _target_function(p, w, prm_array, immittance_exp, immittance_num):
@@ -1346,9 +1347,9 @@ def _save_pdf(filepath,
     # Solid State Ionics, vol. 18–19, no. Part 1, pp. 136–140, 1986.
     # dRe/Re_exp, dIm/Im_exp vs f in log
     plt.figure(figsize=(8, 6))
-    plt.plot(f[mask], data[:, 11]/mod_exp[mask]*100.0, 'ko',
+    plt.plot(f[mask], data[:, 11] / mod_exp[mask] * 100.0, 'ko',
              markersize=4, markeredgewidth=1, mfc='k', mec='k', label='$\Delta Re$')
-    plt.plot(f[mask], data[:, 12]/mod_exp[mask]*100.0, 'ko',
+    plt.plot(f[mask], data[:, 12] / mod_exp[mask] * 100.0, 'ko',
              markersize=4, markeredgewidth=1, mfc='w', mec='k', label='$\Delta Im$')
     plt.title('FQ-Plot')
     plt.grid(which='major', axis='both')
@@ -1479,12 +1480,11 @@ def _get_summary(fit_folder, symbolic_immittance, numeric_immittance):
     n = prm_user.size
     header = '\t'.join(HEADER_MINIMIZATION_ELEMENTS) + '\t'
     header += '\t'.join(prm_user['Names'])
-    col = len(HEADER_MINIMIZATION_ELEMENTS) + prm_user['Names'].size
 
-    header_dtypes = np.dtype({'names':header.split('\t'),
-                                  'formats':[(np.str_, 128)]+[FLOAT]*(len(header.split('\t'))-1)})
+    header_dtypes = np.dtype({'names': header.split('\t'),
+                              'formats': [(np.str_, 128)] + [FLOAT] * (len(header.split('\t')) - 1)})
 
-    summary_end = np.zeros(shape = (run,), dtype=header_dtypes)
+    summary_end = np.zeros(shape=(run,), dtype=header_dtypes)
     for ind, i in enumerate(prm_end):
         run_i, minimization_i = os.path.basename(i).split('-d')[0].split('-')[-2:]
         prm = _import_prm_file(os.path.abspath(i))
@@ -1496,7 +1496,8 @@ def _get_summary(fit_folder, symbolic_immittance, numeric_immittance):
         lcc_results = _get_lcc(immittance_exp_complex[mask], immittance_calc_complex[mask])
 
         summary_end[ind] = (run_i + '-' + minimization_i, valid, np.log10(distance)) \
-                           + tuple(lcc_results) + tuple(prm['Values'].tolist())
+            + tuple(lcc_results) + tuple(prm['Values'].tolist())
+
     # sort over the log10(D)
     mask_end = np.argsort(summary_end['log10(D)'])
     filepath = os.path.abspath(result_folder + '/' + basename + '-' + circuit_str + '.' + SUMMARY_END_EXT)
@@ -1504,7 +1505,7 @@ def _get_summary(fit_folder, symbolic_immittance, numeric_immittance):
                fmt=['%s', '%d', '%+.4f'] + [RESULT_FORMATTING] * (len(HEADER_MINIMIZATION_ELEMENTS) - 3 + n),
                delimiter='\t', header=header)
 
-    summary_min = np.zeros(shape = (run,), dtype=header_dtypes)
+    summary_min = np.zeros(shape=(run,), dtype=header_dtypes)
     for ind, i in enumerate(prm_min):
         run_i, minimization_i = os.path.basename(i).split('-d')[0].split('-')[-2:]
         prm = _import_prm_file(os.path.abspath(i))
@@ -1516,7 +1517,7 @@ def _get_summary(fit_folder, symbolic_immittance, numeric_immittance):
         lcc_results = _get_lcc(immittance_exp_complex[mask], immittance_calc_complex[mask])
 
         summary_min[ind] = (run_i + '-' + minimization_i, valid, np.log10(distance)) \
-                           + tuple(lcc_results) + tuple(prm['Values'].tolist())
+            + tuple(lcc_results) + tuple(prm['Values'].tolist())
     # sort over the log10(D)
     mask_min = np.argsort(summary_min['log10(D)'])
     filepath = os.path.abspath(result_folder + '/' + basename + '-' + circuit_str + '.' + SUMMARY_MIN_EXT)
@@ -1577,8 +1578,8 @@ def _plot_summary(fit_folder):
     prm_user = _import_prm_file(prm_user_filepath)
     header = '\t'.join(HEADER_MINIMIZATION_ELEMENTS) + '\t'
     header += '\t'.join(prm_user['Names'])
-    header_dtypes = np.dtype({'names':header.split('\t'),
-                                  'formats':[(np.str_, 128)]+[FLOAT]*(len(header.split('\t'))-1)})
+    header_dtypes = np.dtype({'names': header.split('\t'),
+                              'formats': [(np.str_, 128)] + [FLOAT] * (len(header.split('\t')) - 1)})
     summary_end = np.loadtxt(summary_end_filepath, comments='#',
                              delimiter='\t',
                              skiprows=0,
@@ -1603,7 +1604,7 @@ def _plot_summary(fit_folder):
     scilimits = (-4, 4)
 
     row = summary_end.shape[0]
-    no_run = range(1, row+1)
+    no_run = range(1, row + 1)
     for ind, name in enumerate(prm_user['Names']):
         if name[0] in ['R', 'D', 'M']:
             unit = '/$\Omega$'
@@ -1631,12 +1632,12 @@ def _plot_summary(fit_folder):
         ax.plot(no_run, summary_end[name], color='k', marker='o', mfc='w', mec='k', ls='-', lw=1, ms=4, mew=1)
         ax.set_xticks(no_run)
         ax.set_xticklabels(summary_end['Nb of Run'], fontsize=6, rotation=45)
-        ax.set_ylim(np.min(summary_end[name])*0.9, np.max(summary_end[name]*1.1))
+        ax.set_ylim(np.min(summary_end[name]) * 0.9, np.max(summary_end[name] * 1.1))
         pdf_end.savefig(fig)
         plt.close(fig)
 
     row = summary_min.shape[0]
-    no_run = range(1, row+1)
+    no_run = range(1, row + 1)
     for ind, name in enumerate(prm_user['Names']):
         if name[0] in ['R', 'D', 'M']:
             unit = '/$\Omega$'
@@ -1662,7 +1663,7 @@ def _plot_summary(fit_folder):
         ax.plot(no_run, summary_min[name], color='k', marker='o', mfc='w', mec='k', ls='-', lw=1, ms=4, mew=1)
         ax.set_xticks(no_run)
         ax.set_xticklabels(summary_min['Nb of Run'], fontsize=6, rotation=45)
-        ax.set_ylim(np.min(summary_min[name])*0.9, np.max(summary_min[name]*1.1))
+        ax.set_ylim(np.min(summary_min[name]) * 0.9, np.max(summary_min[name] * 1.1))
         pdf_min.savefig(fig)
         plt.close(fig)
 
@@ -1708,7 +1709,7 @@ def _callback_fit(filename, run, nb_run, fit, nb_minimization,
     sys.stdout.write('Minimizing ...\n')
 
     general_tb = ptb.PrettyTable(['Fit', 'log10(D)', 'Valid'])
-    general_tb.add_row(['{0:03d}/{1:03d}'.format(fit+1, nb_minimization),
+    general_tb.add_row(['{0:03d}/{1:03d}'.format(fit + 1, nb_minimization),
                         '{0:+09.4f}'.format(np.log10(distance)),
                         '{0:s}'.format(str(valid))])
     sys.stdout.write(general_tb.get_string() + '\n')
@@ -1900,7 +1901,7 @@ def import_experimental_data(filepath, immittance_type='Z'):
     immittance_exp_complex = rez + 1j * imz
 
     if immittance_type == 'Y':
-        immittance_exp_complex = 1.0/immittance_exp_complex
+        immittance_exp_complex = 1.0 / immittance_exp_complex
 
     return f, w, immittance_exp_complex
 
@@ -2023,7 +2024,7 @@ def _round_errors(errors):
     """
     log_errors = np.log10(errors)
     log_errors = np.floor(log_errors)
-    errors = np.ceil(errors*10**(-log_errors))*10**log_errors
+    errors = np.ceil(errors * 10 ** (-log_errors)) * 10 ** log_errors
     return errors
 
 
@@ -2228,8 +2229,8 @@ def run_fit(datafilepath, prmfilepath,
             prm_array, distance = _minimize(w=w[mask], immittance_exp_complex=immittance_exp_complex[mask],
                                             immittance_num=immittance_num,
                                             prm_array=prm_array,
-                                            maxiter=maxiter_per_parameter*nb_param,
-                                            maxfun=maxfun_per_parameter*nb_param,
+                                            maxiter=maxiter_per_parameter * nb_param,
+                                            maxfun=maxfun_per_parameter * nb_param,
                                             xtol=xtol, ftol=ftol,
                                             full_output=full_output, retall=retall, disp=disp, callback=fmin_callback)
 
@@ -2320,17 +2321,17 @@ def _get_prm_error(p, func, epsilon, *args):
 
     n = args[0].size
     nb_param = p.size
-    dof = n-nb_param-1
-    tvp = t.isf(0.05/2.0, dof)
+    dof = n - nb_param - 1
+    tvp = t.isf(0.05 / 2.0, dof)
     if dof <= 0:
         raise np.linalg.LinAlgError('Degree of freedom is lower or equal to zero. Too many parameters are fitted.')
     try:
         jac = approx_jacobian(p, func, epsilon, *args)
         cov = np.dual.inv(np.dot(jac.T, jac))
-        g = _get_chi2(p, *args)/dof
-        dp = _round_errors(np.sqrt(cov.diagonal()*g)*tvp)
+        g = _get_chi2(p, *args) / dof
+        dp = _round_errors(np.sqrt(cov.diagonal() * g) * tvp)
     except np.linalg.LinAlgError as error:
         print(error.message)
-        dp = np.ones(shape=p.shape, dtype=FLOAT)*-1
+        dp = np.ones(shape=p.shape, dtype=FLOAT) * -1
 
     return dp
