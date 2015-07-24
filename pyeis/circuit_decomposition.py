@@ -9,8 +9,8 @@ electrical component and the different connexions i.e. series or parallel.
 """
 import sys
 import sympy as sym
-from pyeis.errors import UnknownComponentError, DoubleSignError, BracketMismacthError
-from pyeis.errors import ImmittanceTypeError, ConnexionTypeError
+from .errors import UnknownComponentError, DoubleSignError, BracketMismacthError
+from .errors import ImmittanceTypeError, ConnexionTypeError
 
 
 # Shadowing the built-in zip from Python 2.7
@@ -569,14 +569,3 @@ def get_numeric_immittance(symbolic_immittance):
 
     return numeric_immittance
 
-
-if __name__ == '__main__':
-    circuit = 'R@el+(Cdl+((Rf+C)/Qdl))+(R/Q)'
-    print('##### Test get_symbolic_immittance ####')
-    print('Input Circuit: {0:s}'.format(circuit))
-    I = get_symbolic_immittance(circuit, immittance_type='Z', simplified=False)
-    sym.pprint(I)
-
-    I_num = get_numeric_immittance(I)
-    print('Numeric Immittance:')
-    print(I_num)

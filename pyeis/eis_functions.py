@@ -20,8 +20,8 @@ from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
 
-from pyeis import circuit_decomposition as cdp
-from pyeis.errors import ParameterNameError, ParameterNumberError, ParameterValueError, FileTypeError
+from . import circuit_decomposition as cdp
+from .errors import ParameterNameError, ParameterNumberError, ParameterValueError, FileTypeError
 
 import prettytable as ptb
 
