@@ -1,6 +1,6 @@
 MAJOR = 0
 MINOR = 5
-MICRO = 'dev'
+MICRO = '2'
 
 dev_labels = ['dev', 'alpha', 'beta']
 
