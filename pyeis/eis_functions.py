@@ -720,7 +720,7 @@ def _get_distance(immittance_exp, immittance_calc, weights=None):
     return distance
 
 
-def _get_residuals(p, w, immittance_exp, immittance_num, weights=None):
+def _get_residuals(p, w, immittance_exp, immittance_num, weights):
     r"""
     Compute the weighted module of the residuals between calculated and experimental values.
 
@@ -746,12 +746,10 @@ def _get_residuals(p, w, immittance_exp, immittance_num, weights=None):
     residuals: 1d numpy array
         Contains the residuals for each angular frequency.
     """
-    if weights is None:
-        weights = 1.0 / immittance_exp
     return np.absolute((immittance_num(p, w) - immittance_exp) * weights)
 
 
-def _get_chi2(p, w, immittance_exp, immittance_num, weights=None):
+def _get_chi2(p, w, immittance_exp, immittance_num, weights):
     r"""
     Compute the scalar :math:`\chi ^{2}` by computing the weighted module of the residuals between
     calculated and experimental values.
@@ -783,10 +781,10 @@ def _get_chi2(p, w, immittance_exp, immittance_num, weights=None):
    :math:`\chi ^{2}`: 1d numpy array
         Scalar :math:`\chi ^{2}`.
     """
-    return np.sum(_get_residuals(p, w, immittance_exp, immittance_num, weights=weights) ** 2)
+    return np.sum(_get_residuals(p, w, immittance_exp, immittance_num, weights) ** 2)
 
 
-def _target_function(p, w, prm_array, immittance_exp, immittance_num):
+def _target_function(p, w, prm_array, immittance_exp, weights, immittance_num):
     r"""
 
     Update the prm_array with the vector `p` sent by the fmin procedure (see Scipy for more details).
@@ -830,13 +828,10 @@ def _target_function(p, w, prm_array, immittance_exp, immittance_num):
     p0[mask_logscan] = 10 ** p0[mask_logscan]
     prm_array['Values'][mask_to_fit] = p0
 
-    # immittance_calc = immittance_num(prm_array['Values'], w)
-    # distance = _get_distance(immittance_exp, immittance_calc)
-
-    return _get_chi2(prm_array['Values'], w, immittance_exp, immittance_num, weights=None)
+    return _get_chi2(prm_array['Values'], w, immittance_exp, immittance_num, weights)
 
 
-def _minimize(w, immittance_exp_complex, immittance_num, prm_array,
+def _minimize(w, immittance_exp_complex, weights, immittance_num, prm_array,
               maxiter=None, maxfun=None, xtol=DEFAULT_XTOL, ftol=DEFAULT_FTOL,
               full_output=True, retall=False, disp=False, callback=None):
     r"""
@@ -902,6 +897,7 @@ def _minimize(w, immittance_exp_complex, immittance_num, prm_array,
                                                      args=(w,
                                                            prm_array,
                                                            immittance_exp_complex,
+                                                           weights,
                                                            immittance_num),
                                                      maxiter=maxiter,
                                                      maxfun=maxfun,
@@ -1470,11 +1466,20 @@ def _get_summary(fit_folder, symbolic_immittance, numeric_immittance):
     prm_user_filepath = os.path.abspath(fitsettings_dict['Parameter File'])
     circuit = fitsettings_dict['Circuit']
     circuit_str = circuit.replace('+', '_s_').replace('/', '_p_')
+    weights_type = fitsettings_dict['Weights Type']
 
     f, rez, imz = _get_exp_data(datafilepath)
     w = 2 * np.pi * f
     immittance_exp_complex = rez + 1j * imz
     mask, = np.where((f >= f_start) & (f <= f_end))
+
+    # set the weights
+    if weights_type == '1/I':
+        weights = 1.0/immittance_exp_complex
+    elif weights_type == '1':
+        weights = np.ones(shape=w.shape, dtype=w.dtype)
+    else:
+        weights = 1.0/immittance_exp_complex
 
     prm_user = _import_prm_file(prm_user_filepath)
     n = prm_user.size
@@ -1492,7 +1497,7 @@ def _get_summary(fit_folder, symbolic_immittance, numeric_immittance):
         valid = _check_validity_prm(prm_array)
 
         immittance_calc_complex = numeric_immittance(prm_array['Values'], w)
-        distance = _get_distance(immittance_exp_complex[mask], immittance_calc_complex[mask])
+        distance = _get_chi2(prm_array['Values'], w, immittance_exp_complex[mask], numeric_immittance, weights)
         lcc_results = _get_lcc(immittance_exp_complex[mask], immittance_calc_complex[mask])
 
         summary_end[ind] = (run_i + '-' + minimization_i, valid, np.log10(distance)) \
@@ -1513,7 +1518,7 @@ def _get_summary(fit_folder, symbolic_immittance, numeric_immittance):
         valid = _check_validity_prm(prm_array)
 
         immittance_calc_complex = numeric_immittance(prm_array['Values'], w)
-        distance = _get_distance(immittance_exp_complex[mask], immittance_calc_complex[mask])
+        distance = _get_chi2(prm_array['Values'], w, immittance_exp_complex[mask], numeric_immittance, weights)
         lcc_results = _get_lcc(immittance_exp_complex[mask], immittance_calc_complex[mask])
 
         summary_min[ind] = (run_i + '-' + minimization_i, valid, np.log10(distance)) \
@@ -1671,22 +1676,19 @@ def _plot_summary(fit_folder):
     pdf_min.close()
 
 
-def _random_scan(w, prm_array, immittance_exp_complex, symbolic_immittance, numeric_immittance, loops=1):
+def _random_scan(w, prm_array, immittance_exp_complex, weights, symbolic_immittance, numeric_immittance, loops=1):
     # prm_array_random = _initialize_prm_from_immittance(symbolic_immittance)
     prm_array_random_min = _initialize_prm_from_immittance(symbolic_immittance)
 
     # 1st random scan
     prm_array_random = _get_random_prm_values(prm_array, all_parameters=True)
-    immittance_calc_complex = numeric_immittance(prm_array_random['Values'], w)
-
     prm_array_random_min[:] = prm_array_random[:]
-    distance = _get_distance(immittance_exp_complex, immittance_calc_complex)
+    distance = _get_chi2(prm_array_random['Values'], w, immittance_exp_complex, numeric_immittance, weights)
     distance_min = distance
 
     for i in range(loops - 1):
         prm_array_random = _get_random_prm_values(prm_array, all_parameters=True)
-        immittance_calc_complex = numeric_immittance(prm_array_random['Values'], w)
-        distance = _get_distance(immittance_exp_complex, immittance_calc_complex)
+        distance = _get_chi2(prm_array_random['Values'], w, immittance_exp_complex, numeric_immittance, weights)
         valid = _check_validity_prm(prm_array)
 
         if valid:
@@ -1740,6 +1742,7 @@ def _get_circuit_string(circuit):
 
 def _save_fit_settings(circuit,
                        immittance_type,
+                       weights_type,
                        datafilepath,
                        f_limits,
                        prmfilepath,
@@ -1763,6 +1766,7 @@ def _save_fit_settings(circuit,
 
     fit_settings = ['Circuit={0:s}'.format(circuit),
                     'Immittance Type={0:s}'.format(immittance_type),
+                    'Weights Type={0:s}'.format(weights_type),
                     'Experimental Data File={0:s}'.format(datafilepath),
                     'Frequency Range (Hz)={0:.2e},{1:.2e}'.format(f_start, f_end),
                     'Parameter File={0:s}'.format(prmfilepath),
@@ -2031,7 +2035,7 @@ def _round_errors(errors):
 # noinspection PyUnboundLocalVariable,PyUnresolvedReferences,PyUnresolvedReferences,PyUnresolvedReferences
 def run_fit(datafilepath, prmfilepath,
             nb_run_per_process=3, nb_minimization=50,
-            f_limits=None, init_types=('random', 'random', 'random'), immittance_type='Z',
+            f_limits=None, init_types=('random', 'random', 'random'), immittance_type='Z', weights_type='1/I',
             root=None, alloy=None, alloy_id=None,
             random_loops=DEFAULT_RANDOM_LOOPS, nb_processes=1, process_id=1, simplified=False,
             maxiter_per_parameter=DEFAULT_MAXITER_PER_PARAMETER,
@@ -2088,6 +2092,10 @@ def run_fit(datafilepath, prmfilepath,
     immittance_type: string
         Type of immittance to be used for generating the symbolic and numeric expression.
         Can be impedance or admittance i.e. Z or Y.
+
+    weights_type :str
+        Type of weights which can '1/I' or '1'. When weights_type is '1/I' the inverse of the experimental
+        complex immittance is used. When weights_type is '1' no weights are applied.
 
     root: string
         Path of the folder were the results will be saved. If `root` is set to None, the current working
@@ -2172,6 +2180,14 @@ def run_fit(datafilepath, prmfilepath,
     f, w, immittance_exp_complex = import_experimental_data(datafilepath, immittance_type=immittance_type)
     mask = _get_frequency_mask(f, f_limits)
 
+    # set the weights
+    if weights_type == '1/I':
+        weights = 1.0/immittance_exp_complex
+    elif weights_type == '1':
+        weights = np.ones(shape=w.shape, dtype=w.dtype)
+    else:
+        weights = 1.0/immittance_exp_complex
+
     # set the initialization types
     init_type_0, init_type_validation, init_type_n = init_types
 
@@ -2185,6 +2201,7 @@ def run_fit(datafilepath, prmfilepath,
     # save fit settings
     _save_fit_settings(circuit,
                        immittance_type,
+                       weights_type,
                        datafilepath,
                        f_limits,
                        prmfilepath,
@@ -2205,13 +2222,15 @@ def run_fit(datafilepath, prmfilepath,
 
         if run == 0:
             if init_type_0 == 'random':
-                prm_array = _random_scan(w, prm_array, immittance_exp_complex, immittance, immittance_num,
+                prm_array = _random_scan(w[mask], prm_array, immittance_exp_complex[mask], weights[mask],
+                                         immittance, immittance_num,
                                          loops=random_loops)
             elif init_type_0 == 'user':
                 prm_array[:] = prm_init[:]
         else:
             if init_type_n == 'random':
-                prm_array = _random_scan(w, prm_array, immittance_exp_complex, immittance, immittance_num,
+                prm_array = _random_scan(w[mask], prm_array, immittance_exp_complex[mask], weights[mask],
+                                         immittance, immittance_num,
                                          loops=random_loops)
             elif init_type_n == 'user':
                 prm_array[:] = prm_init[:]
@@ -2220,13 +2239,13 @@ def run_fit(datafilepath, prmfilepath,
             elif init_type_n == 'end':
                 prm_array[:] = prm_end_run[:]
 
-        immittance_calc_complex = immittance_num(prm_array['Values'], w)
-        distance = _get_distance(immittance_exp_complex, immittance_calc_complex)
+        distance = _get_chi2(prm_array['Values'], w[mask], immittance_exp_complex[mask], immittance_num, weights[mask])
         distance_min_run = distance
         distance_end_run = distance
 
         for fit in range(nb_minimization):
             prm_array, distance = _minimize(w=w[mask], immittance_exp_complex=immittance_exp_complex[mask],
+                                            weights=weights[mask],
                                             immittance_num=immittance_num,
                                             prm_array=prm_array,
                                             maxiter=maxiter_per_parameter * nb_param,
@@ -2273,13 +2292,15 @@ def run_fit(datafilepath, prmfilepath,
                                                   _EPSILON,
                                                   w[mask],
                                                   immittance_exp_complex[mask],
-                                                  immittance_num)
+                                                  immittance_num,
+                                                  weights[mask])
         prm_min_run['Errors'][:] = _get_prm_error(prm_min_run['Values'],
                                                   _get_residuals,
                                                   _EPSILON,
                                                   w[mask],
                                                   immittance_exp_complex[mask],
-                                                  immittance_num)
+                                                  immittance_num,
+                                                  weights[mask])
 
         if callback is not None:
             callback(filename, run, nb_run_per_process, fit, nb_minimization,
@@ -2321,7 +2342,7 @@ def _get_prm_error(p, func, epsilon, *args):
 
     n = args[0].size
     nb_param = p.size
-    dof = n - nb_param - 1
+    dof = n - nb_param
     tvp = t.isf(0.05 / 2.0, dof)
     if dof <= 0:
         raise np.linalg.LinAlgError('Degree of freedom is lower or equal to zero. Too many parameters are fitted.')
