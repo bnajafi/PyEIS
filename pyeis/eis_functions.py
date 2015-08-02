@@ -11,11 +11,12 @@ import sys
 import platform
 
 import numpy as np
-from scipy.optimize import fmin
-from scipy.stats import linregress
-from scipy.stats import t
+import scipy as sp
+from scipy import stats
+from scipy import optimize
 from scipy.optimize.slsqp import approx_jacobian
 # TODO: Write custom approx_jacobian function for specific needs
+
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
@@ -101,8 +102,8 @@ SUMMARY_END_EXT = 'SumEnd'
 SUMMARY_MIN_EXT = 'SumMin'
 
 DEFAULT_RANDOM_LOOPS = 200
-DEFAULT_XTOL = 1e-8
-DEFAULT_FTOL = 1e-8
+DEFAULT_XTOL = _EPSILON
+DEFAULT_FTOL = _EPSILON
 DEFAULT_MAXITER_PER_PARAMETER = 200
 DEFAULT_MAXFUN_PER_PARAMETER = 200
 
@@ -198,11 +199,48 @@ def _get_exp_data(filepath):
 
     Get the data array of data files according to their extension.
 
-    Supported files are .z files recorded by ZView software, .par files recorded by VersaStudio and .data files
-    were the first three columns represent :math:`f`, :math:`ReZ`, :math:`ImZ`.
+    Supported files from commercial softwares are:
+
+        * **.z** files recorded by ZView software
+        * **.par** files recorded by VersaStudio.
+
+    Supported dummy file formats:
+
+     * **.data**
+     * **.txt**
+
+    where the first three columns represent :math:`f`, :math:`ReZ`, :math:`ImZ`, respectively.
+
+    Both commercial and dummy files do not provide standard deviations for the :math:`N` measurements at each frequency.
+    Standard deviations are handy because they can be used as weights in the fitting procedure.
+    If a commercial or a dummy file is provided, the standard deviations for the real and imaginary parts are set to 1.0.
+
+    A more custom file format .pyeisdata is supported where the 1st column is the frequencies :math:`f`.
+    The columns 2 and 3 represent the mean values :math:`f`, :math:`\overline{ReZ}`, :math:`\overline{ImZ}`.
+    of the :math:`N` measurements at each frequency :math:`f`.
+    The columns 4 and 5 represent the standard deviations :math:`\sigma_{ReZ}` and :math:`\sigma_{ImZ}`
+    of the :math:`N` measurements at each frequency :math:`f`.
+    The columns 6 and 7 represent the standard deviations :math:`\sigma_{\overline{ReZ}}` and
+    :math:`\sigma_{\overline{ImZ}}` of the mean values at each frequency :math:`f`.
+
+    The standard deviations of the :math:`N` measurements are computed with the following relationships:
+
+    .. math::
+
+        \sigma_{ReZ}  = \sqrt{ \frac{1}{N-1}  \sum _{i=1}^{N} (ReZ_i - \overline{ReZ})^2 } \\
+        \sigma_{ImZ}  = \sqrt{ \frac{1}{N-1}  \sum _{i=1}^{N} (ImZ_i - \overline{ImZ})^2 }
+
+    The standard deviations of the mean values :math:`\overline{ReZ}` and :math:`\overline{ImZ}` are computed with the following
+    relationships:
+
+    .. math::
+
+        \sigma_{\overline{ReZ}}  = \frac{\sigma_{ReZ}}{\sqrt{N}} \\
+        \sigma_{\overline{ImZ}}  = \frac{\sigma_{ImZ}}{\sqrt{N}}
+
 
     Frequencies, real and imaginary parts of the immittance are extracted from the files.
-    
+
     Parameters
     -----------
     filepath: string
@@ -216,7 +254,7 @@ def _get_exp_data(filepath):
     """
 
     name, ext = os.path.basename(os.path.abspath(filepath)).split('.')
-    extensions = ['z', 'par', 'data', 'partxt']
+    extensions = ['z', 'par', 'data', 'partxt', 'pyeisdata']
 
     skip_header, skip_footer = 0, 0
     usecols = (0, 1, 2)
@@ -237,6 +275,12 @@ def _get_exp_data(filepath):
             delimiter = '\t'
             converters = None
 
+        elif ext.lower() == 'pyeisdata':
+            skip_header, skip_footer = 0, 0
+            usecols = (0, 1, 2, 3, 4, 5, 6)
+            delimiter = '\t'
+            converters = None
+
         elif ext.lower() == 'z':
             skip_header, skip_footer, nbpoints = 11, 0, 0
             usecols = (0, 4, 5)
@@ -249,14 +293,26 @@ def _get_exp_data(filepath):
             delimiter = '\t'
             converters = None
 
-        f, rez, imz = np.genfromtxt(fname=filepath, dtype=FLOAT, comments='#', delimiter=delimiter,
-                                    skiprows=0, skip_header=skip_header, skip_footer=skip_footer,
-                                    converters=converters, missing='', missing_values=None, filling_values=None,
-                                    usecols=usecols, names=None, excludelist=None,
-                                    deletechars=None, replace_space='_', autostrip=False, case_sensitive=True,
-                                    defaultfmt='f%i', unpack=True, usemask=False, loose=True, invalid_raise=True)
+        if len(usecols) == 3:
+            f, rez, imz = np.genfromtxt(fname=filepath, dtype=FLOAT, comments='#', delimiter=delimiter,
+                                        skiprows=0, skip_header=skip_header, skip_footer=skip_footer,
+                                        converters=converters, missing='', missing_values=None, filling_values=None,
+                                        usecols=usecols, names=None, excludelist=None,
+                                        deletechars=None, replace_space='_', autostrip=False, case_sensitive=True,
+                                        defaultfmt='f%i', unpack=True, usemask=False, loose=True, invalid_raise=True)
+            rez_s = np.ones(shape=rez.shape, dtype=rez.dtype)
+            rez_sm = np.ones(shape=rez.shape, dtype=rez.dtype)
+            imz_s = np.ones(shape=imz.shape, dtype=imz.dtype)
+            imz_sm = np.ones(shape=imz.shape, dtype=imz.dtype)
+        elif len(usecols) == 7:
+            f, rez, imz, rez_s, imz_s, rez_sm, imz_sm = np.genfromtxt(fname=filepath, dtype=FLOAT, comments='#', delimiter=delimiter,
+                                        skiprows=0, skip_header=skip_header, skip_footer=skip_footer,
+                                        converters=converters, missing='', missing_values=None, filling_values=None,
+                                        usecols=usecols, names=None, excludelist=None,
+                                        deletechars=None, replace_space='_', autostrip=False, case_sensitive=True,
+                                        defaultfmt='f%i', unpack=True, usemask=False, loose=True, invalid_raise=True)
 
-        return f, rez, imz
+        return f, rez, imz, rez_s, imz_s, rez_sm, imz_sm
     else:
         message = 'Data file type was not recognized.'
         raise FileTypeError(message)
@@ -892,21 +948,21 @@ def _minimize(w, immittance_exp_complex, weights, immittance_num, prm_array,
     p0 = prm_array['Values'][mask_to_fit]
     p0[mask_logscan] = np.log10(p0[mask_logscan])
 
-    popt, fopt, iteration, funcalls, warnflag = fmin(_target_function,
-                                                     p0,
-                                                     args=(w,
-                                                           prm_array,
-                                                           immittance_exp_complex,
-                                                           weights,
-                                                           immittance_num),
-                                                     maxiter=maxiter,
-                                                     maxfun=maxfun,
-                                                     xtol=xtol,
-                                                     ftol=ftol,
-                                                     full_output=full_output,
-                                                     retall=retall,
-                                                     disp=disp,
-                                                     callback=callback)
+    popt, fopt, iteration, funcalls, warnflag = optimize.fmin(_target_function,
+                                                                 p0,
+                                                                 args=(w,
+                                                                       prm_array,
+                                                                       immittance_exp_complex,
+                                                                       weights,
+                                                                       immittance_num),
+                                                                 maxiter=maxiter,
+                                                                 maxfun=maxfun,
+                                                                 xtol=xtol,
+                                                                 ftol=ftol,
+                                                                 full_output=full_output,
+                                                                 retall=retall,
+                                                                 disp=disp,
+                                                                 callback=callback)
 
     p0 = prm_array['Values'][mask_to_fit]
     p0[:] = popt[:]
@@ -1010,10 +1066,10 @@ def _get_lcc(immittance_exp_complex, immittance_calc_complex):
     mod_exp, phase_exp, re_exp, im_exp = _get_complex_parameters(immittance_exp_complex, deg=True)
     mod_calc, phase_calc, re_calc, im_calc = _get_complex_parameters(immittance_calc_complex, deg=True)
 
-    slope_mod, intercept_mod, r_mod, p_mod, std_mod = linregress(mod_exp, mod_calc)
-    slope_phase, intercept_phase, r_phase, p_phase, std_phase = linregress(phase_exp, phase_calc)
-    slope_re, intercept_re, r_re, p_re, std_re = linregress(re_exp, re_calc)
-    slope_im, intercept_im, r_im, p_im, std_im = linregress(im_exp, im_calc)
+    slope_mod, intercept_mod, r_mod, p_mod, std_mod = sp.stats.linregress(mod_exp, mod_calc)
+    slope_phase, intercept_phase, r_phase, p_phase, std_phase = sp.stats.linregress(phase_exp, phase_calc)
+    slope_re, intercept_re, r_re, p_re, std_re = sp.stats.linregress(re_exp, re_calc)
+    slope_im, intercept_im, r_im, p_im, std_im = sp.stats.linregress(im_exp, im_calc)
 
     return r_mod, r_phase, r_re, r_im, \
            slope_mod, slope_phase, slope_re, slope_im, \
@@ -1467,15 +1523,18 @@ def _get_summary(fit_folder, symbolic_immittance, numeric_immittance):
     circuit = fitsettings_dict['Circuit']
     circuit_str = circuit.replace('+', '_s_').replace('/', '_p_')
     weights_type = fitsettings_dict['Weights Type']
+    immittance_type = fitsettings_dict['Immittance Type']
 
-    f, rez, imz = _get_exp_data(datafilepath)
-    w = 2 * np.pi * f
-    immittance_exp_complex = rez + 1j * imz
+    f, w, immittance_exp_complex, std_exp_complex, std_m_exp_complex = import_experimental_data(datafilepath, immittance_type)
     mask, = np.where((f >= f_start) & (f <= f_end))
 
     # set the weights
     if weights_type == '1/I':
         weights = 1.0/immittance_exp_complex
+    elif weights_type == '1/s':
+        weights = 1.0/np.sqrt(std_exp_complex)
+    elif weights_type == '1/sm':
+        weights = 1.0/np.sqrt(std_m_exp_complex)
     elif weights_type == '1':
         weights = np.ones(shape=w.shape, dtype=w.dtype)
     else:
@@ -1497,7 +1556,7 @@ def _get_summary(fit_folder, symbolic_immittance, numeric_immittance):
         valid = _check_validity_prm(prm_array)
 
         immittance_calc_complex = numeric_immittance(prm_array['Values'], w)
-        distance = _get_chi2(prm_array['Values'], w, immittance_exp_complex[mask], numeric_immittance, weights)
+        distance = _get_chi2(prm_array['Values'], w[mask], immittance_exp_complex[mask], numeric_immittance, weights[mask])
         lcc_results = _get_lcc(immittance_exp_complex[mask], immittance_calc_complex[mask])
 
         summary_end[ind] = (run_i + '-' + minimization_i, valid, np.log10(distance)) \
@@ -1518,7 +1577,7 @@ def _get_summary(fit_folder, symbolic_immittance, numeric_immittance):
         valid = _check_validity_prm(prm_array)
 
         immittance_calc_complex = numeric_immittance(prm_array['Values'], w)
-        distance = _get_chi2(prm_array['Values'], w, immittance_exp_complex[mask], numeric_immittance, weights)
+        distance = _get_chi2(prm_array['Values'], w[mask], immittance_exp_complex[mask], numeric_immittance, weights[mask])
         lcc_results = _get_lcc(immittance_exp_complex[mask], immittance_calc_complex[mask])
 
         summary_min[ind] = (run_i + '-' + minimization_i, valid, np.log10(distance)) \
@@ -1874,10 +1933,47 @@ def import_experimental_data(filepath, immittance_type='Z'):
 
     Import experimental data and compute the complex impedance.
 
-    Supported files are .z files recorded by ZView software, .par files recorded by VersaStudio and .data files
-    were the first three columns represent :math:`f`, :math:`ReZ`, :math:`ImZ`.
+    Supported files from commercial softwares are:
 
-    Frequencies, real and imaginary parts of the impedance are extracted from the files.
+        * **.z** files recorded by ZView software
+        * **.par** files recorded by VersaStudio.
+
+    Supported dummy file formats:
+
+     * **.data**
+     * **.txt**
+
+    where the first three columns represent :math:`f`, :math:`ReZ`, :math:`ImZ`, respectively.
+
+    Both commercial and dummy files do not provide standard deviations for the :math:`N` measurements at each frequency.
+    Standard deviations are handy because they can be used as weights in the fitting procedure.
+    If a commercial or a dummy file is provided, the standard deviations for the real and imaginary parts are set to 1.0.
+
+    A more custom file format .pyeisdata is supported where the 1st column is the frequencies :math:`f`.
+    The columns 2 and 3 represent the mean values :math:`f`, :math:`\overline{ReZ}`, :math:`\overline{ImZ}`.
+    of the :math:`N` measurements at each frequency :math:`f`.
+    The columns 4 and 5 represent the standard deviations :math:`\sigma_{ReZ}` and :math:`\sigma_{ImZ}`
+    of the :math:`N` measurements at each frequency :math:`f`.
+    The columns 6 and 7 represent the standard deviations :math:`\sigma_{\overline{ReZ}}` and
+    :math:`\sigma_{\overline{ImZ}}` of the mean values at each frequency :math:`f`.
+
+    The standard deviations of the :math:`N` measurements are computed with the following relationships:
+
+    .. math::
+
+        \sigma_{ReZ}  = \sqrt{ \frac{1}{N-1}  \sum _{i=1}^{N} (ReZ_i - \overline{ReZ})^2 } \\
+        \sigma_{ImZ}  = \sqrt{ \frac{1}{N-1}  \sum _{i=1}^{N} (ImZ_i - \overline{ImZ})^2 }
+
+    The standard deviations of the mean values :math:`\overline{ReZ}` and :math:`\overline{ImZ}` are computed with the following
+    relationships:
+
+    .. math::
+
+        \sigma_{\overline{ReZ}}  = \frac{\sigma_{ReZ}}{\sqrt{N}} \\
+        \sigma_{\overline{ImZ}}  = \frac{\sigma_{ImZ}}{\sqrt{N}}
+
+
+    Frequencies, real and imaginary parts of the immittance are extracted from the files.
 
     Parameters
     -----------
@@ -1895,19 +1991,23 @@ def import_experimental_data(filepath, immittance_type='Z'):
         Angular frequency computed as :math:`2 \pi f`
 
     I_exp_complex: 1d numpy array
-        Complex electrochemical immittance computed as :math:`ReZ+jImZ`.
+        Complex electrochemical immittance computed as :math:`ReI+jImI`.
 
     """
 
     datafilepath = os.path.abspath(filepath)
-    f, rez, imz = _get_exp_data(datafilepath)
+    f, rez, imz, rez_s, imz_s, rez_sm, imz_sm = _get_exp_data(datafilepath)
     w = 2 * np.pi * f
     immittance_exp_complex = rez + 1j * imz
+    std_exp_complex = rez_s + 1j * imz_s
+    std_m_exp_complex = rez_sm + 1j * imz_sm
 
     if immittance_type == 'Y':
         immittance_exp_complex = 1.0 / immittance_exp_complex
+        std_exp_complex = 1.0/std_exp_complex
+        std_m_exp_complex = 1.0/std_m_exp_complex
 
-    return f, w, immittance_exp_complex
+    return f, w, immittance_exp_complex, std_exp_complex, std_m_exp_complex
 
 
 # noinspection PyTypeChecker
@@ -1970,42 +2070,42 @@ def generate_calculated_values(prmfilepath, savefilepath,
     immittance_calc_complex = immittance_num(prm_array['Values'], w)
     mod, phase, re, im = _get_complex_parameters(immittance_calc_complex, deg=True)
 
-    # The relative errors are taken as the 99% interval in normal distribution i.e. 3*sigma
-    # sigma(w) = relative_error*Re(w)/3.0
+    # The relative errors are taken as the 95% interval in normal distribution i.e. 1.96*sigma
+    # sigma(w) = relative_error*Re(w)/1.96
     for i in range(samples):
-        re_array[:, i] = re * (1 + np.random.standard_normal((w.size,)) * re_relative_error / 100.0 / 3.0)
-        im_array[:, i] = im * (1 + np.random.standard_normal((w.size,)) * im_relative_error / 100.0 / 3.0)
+        re_array[:, i] = re * (1 + np.random.standard_normal((w.size,)) * re_relative_error / 100.0 / stats.norm.isf(0.025))
+        im_array[:, i] = im * (1 + np.random.standard_normal((w.size,)) * im_relative_error / 100.0 / stats.norm.isf(0.025))
 
-    dof = samples - 1
-    tvp = t.isf((1 - 0.99) / 2, dof)
+    # dof = samples - 1
+    # tvp = stats.t.isf(stats.norm.sf(1), dof)
 
     re_array[:, samples] = np.mean(re_array[:, 0:samples], axis=1)
     im_array[:, samples] = np.mean(im_array[:, 0:samples], axis=1)
 
-    re_array[:, samples + 1] = np.std(re_array[:, 0:samples], axis=1, ddof=dof) / np.sqrt(samples) * tvp
-    im_array[:, samples + 1] = np.std(im_array[:, 0:samples], axis=1, ddof=dof) / np.sqrt(samples) * tvp
+    re_array[:, samples + 1] = np.std(re_array[:, 0:samples], axis=1, ddof=1)
+    im_array[:, samples + 1] = np.std(im_array[:, 0:samples], axis=1, ddof=1)
 
-    re_array[:, samples + 2] = np.absolute(re_array[:, samples + 1] / re_array[:, samples] * 100.0)
-    im_array[:, samples + 2] = np.absolute(im_array[:, samples + 1] / im_array[:, samples] * 100.0)
+    re_array[:, samples + 2] =  re_array[:, samples + 1] / np.sqrt(samples)
+    im_array[:, samples + 2] =  im_array[:, samples + 1] / np.sqrt(samples)
 
     header_elements = [u'f /Hz',
                        u'Re{0:s} /Ohms'.format(immittance_type),
                        u'Im{0:s} /Ohms'.format(immittance_type),
-                       u'd_Re{0:s} /Ohms'.format(immittance_type),
-                       u'd_Im{0:s} /Ohms'.format(immittance_type),
-                       u'd_Re{0:s} /%'.format(immittance_type),
-                       u'd_Im{0:s} /%'.format(immittance_type)]
+                       u'V_Re{0:s} /Ohms'.format(immittance_type),
+                       u'V_Im{0:s} /Ohms'.format(immittance_type),
+                       u'Vm_Re{0:s} /%'.format(immittance_type),
+                       u'Vm_Im{0:s} /%'.format(immittance_type)]
 
     re = re_array[:, samples]
     im = im_array[:, samples]
 
-    d_re = re_array[:, samples + 1]
-    d_im = im_array[:, samples + 1]
+    re_s = re_array[:, samples + 1]
+    im_s = im_array[:, samples + 1]
 
-    drel_re = np.ceil(re_array[:, samples + 2])
-    drel_im = np.ceil(im_array[:, samples + 2])
+    re_sm = re_array[:, samples + 2]
+    im_sm = im_array[:, samples + 2]
 
-    data = np.vstack((f, re, im, d_re, d_im, drel_re, drel_im)).transpose()
+    data = np.vstack((f, re, im, re_s, im_s, re_sm, im_sm)).transpose()
     np.savetxt(savefilepath, X=data, delimiter='\t', header='\t'.join(header_elements))
 
 
@@ -2177,12 +2277,16 @@ def run_fit(datafilepath, prmfilepath,
     # import data
     datafilepath = os.path.abspath(datafilepath)
     filename = os.path.basename(datafilepath)
-    f, w, immittance_exp_complex = import_experimental_data(datafilepath, immittance_type=immittance_type)
+    f, w, immittance_exp_complex, std_exp_complex, std_m_exp_complex = import_experimental_data(datafilepath, immittance_type=immittance_type)
     mask = _get_frequency_mask(f, f_limits)
 
     # set the weights
     if weights_type == '1/I':
         weights = 1.0/immittance_exp_complex
+    elif weights_type == '1/s':
+        weights = 1.0/np.sqrt(std_exp_complex)
+    elif weights_type == '1/sm':
+        weights = 1.0/np.sqrt(std_m_exp_complex)
     elif weights_type == '1':
         weights = np.ones(shape=w.shape, dtype=w.dtype)
     else:
@@ -2343,7 +2447,7 @@ def _get_prm_error(p, func, epsilon, *args):
     n = args[0].size
     nb_param = p.size
     dof = n - nb_param
-    tvp = t.isf(0.05 / 2.0, dof)
+    tvp = stats.t.isf(0.05 / 2.0, dof)
     if dof <= 0:
         raise np.linalg.LinAlgError('Degree of freedom is lower or equal to zero. Too many parameters are fitted.')
     try:
