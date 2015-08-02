@@ -108,13 +108,15 @@ DEFAULT_MAXITER_PER_PARAMETER = 200
 DEFAULT_MAXFUN_PER_PARAMETER = 200
 
 HEADER_RESULT_ARRAY = [r'f /Hz',
-                       r'|I_exp| /A', r'Phase_exp /deg', r'Re I_exp /A', r'Im I_exp /A',
-                       r'|I_calc| /A', r'Phase_calc /deg', r'Re I_calc /A', r'Im I_calc /A',
-                       r'Res |I| /A', r'Res Phase /deg', r'Res Re I /A', r'Res Im I /A']
+                       r'|I_exp|', r'Phase_exp', r'Re I_exp', r'Im I_exp',
+                       r'|I_calc|', r'Phase_calc', r'Re I_calc', r'Im I_calc',
+                       r'Res |I|', r'Res Phase', r'Res Re I', r'Res Im I',
+                       r'Res |I|/|I_exp|*100', r'Res Phase/Phase_exp*100', r'Res Re I/Re I_exp*100',
+                       r'Res Im I_exp/Im I_exp*100']
 
 HEADER_MINIMIZATION_ELEMENTS = ['Nb of Run',
                                 'Valid',
-                                'log10(D)',
+                                'Xv2',
                                 'LCC Module',
                                 'LCC Phase',
                                 'LCC Re',
@@ -1108,11 +1110,16 @@ def _get_results_array(f, immittance_exp_complex, immittance_calc_complex):
     res_phase = phase_exp - phase_calc
     res_re = re_exp - re_calc
     res_im = im_exp - im_calc
+    res_mod_rel = res_mod/mod_exp*100
+    res_phase_rel = res_phase/phase_exp*100.0
+    res_re_rel = res_re/re_exp*100
+    res_im_rel = res_im/im_exp*100
 
     data_array = np.transpose(np.vstack((f,
                                          mod_exp, phase_exp, re_exp, im_exp,
                                          mod_calc, phase_calc, re_calc, im_calc,
-                                         res_mod, res_phase, res_re, res_im)))
+                                         res_mod, res_phase, res_re, res_im,
+                                         res_mod_rel, res_phase_rel, res_re_rel, res_im_rel)))
 
     return header, data_array
 
@@ -1185,52 +1192,54 @@ def _save_results(circuit, run, process_id, fit_folder, datafilepath, circuit_st
 
     name, ext = os.path.basename(datafilepath).split('.')
     n = prm_end_run['Names'].size
+    mask_to_fit = _get_mask_to_fit(prm_end_run)
     w = 2 * np.pi * f
+    dof = w[mask].size - mask_to_fit.size
 
     # save minimization results
     filepath = '{0:s}/{1:s}-{2:s}-{3:d}-{4:d}.{5:s}'.format(fit_folder, name, circuit_str, process_id, run + 1,
                                                             PRM_ALL_RUN_EXT)
     np.savetxt(filepath, minimization_results,
-               fmt=['%d', '%d', '%+.4f'] + [RESULT_FORMATTING] * (len(HEADER_MINIMIZATION_ELEMENTS) - 3 + n),
+               fmt=['%d', '%d', '%+.4e'] + [RESULT_FORMATTING] * (len(HEADER_MINIMIZATION_ELEMENTS) - 3 + n),
                delimiter='\t',
                newline='\n',
                header=header_minimization_results)
 
     # save minimum
-    filepath = '{0:s}/{1:s}-{2:s}-{3:d}-{4:d}-d{5:.4f}.{6:s}'.format(fit_folder, name, circuit_str, process_id, run + 1,
-                                                                     np.log10(distance_min_run), PRM_MIN_EXT)
+    filepath = '{0:s}/{1:s}-{2:s}-{3:d}-{4:d}-d{5:.4e}.{6:s}'.format(fit_folder, name, circuit_str, process_id, run + 1,
+                                                                     distance_min_run/dof, PRM_MIN_EXT)
     np.savetxt(filepath, _update_prm(prm_min_run, prm_user), fmt=PRM_FORMATS_STR, delimiter='\t', newline='\n',
                header=circuit + '\n' + '\t'.join(PRM_NAMES))
 
     immittance_calc_complex = immittance_num(prm_min_run['Values'], w)
     header, data = _get_results_array(f[mask], immittance_exp_complex[mask], immittance_calc_complex[mask])
-    filepath = '{0:s}/{1:s}-{2:s}-{3:d}-{4:d}-d{5:.4f}.{6:s}'.format(fit_folder, name, circuit_str, process_id, run + 1,
-                                                                     np.log10(distance_min_run), DATA_MIN_EXT)
+    filepath = '{0:s}/{1:s}-{2:s}-{3:d}-{4:d}-d{5:.4e}.{6:s}'.format(fit_folder, name, circuit_str, process_id, run + 1,
+                                                                     distance_min_run/dof, DATA_MIN_EXT)
     np.savetxt(filepath, data, fmt=RESULT_FORMATTING, delimiter='\t', newline='\n', header=header)
 
     ext = 'pdf'
-    filepath = '{0:s}/{1:s}-{2:s}-{3:d}-{4:d}-{5:s}-d{6:.4f}.{7:s}'.format(fit_folder, name, circuit_str, process_id,
-                                                                           run + 1, 'Min', np.log10(distance_min_run),
+    filepath = '{0:s}/{1:s}-{2:s}-{3:d}-{4:d}-{5:s}-d{6:.4e}.{7:s}'.format(fit_folder, name, circuit_str, process_id,
+                                                                           run + 1, 'Min', distance_min_run/dof,
                                                                            ext)
     _save_pdf(filepath,
               f, immittance_exp_complex, immittance_calc_complex,
               mask, minimization_results, data)
 
     # save end
-    filepath = '{0:s}/{1:s}-{2:s}-{3:d}-{4:d}-d{5:.4f}.{6:s}'.format(fit_folder, name, circuit_str, process_id, run + 1,
-                                                                     np.log10(distance_end_run), PRM_END_EXT)
+    filepath = '{0:s}/{1:s}-{2:s}-{3:d}-{4:d}-d{5:.4e}.{6:s}'.format(fit_folder, name, circuit_str, process_id, run + 1,
+                                                                     distance_end_run/dof, PRM_END_EXT)
     np.savetxt(filepath, _update_prm(prm_end_run, prm_user), fmt=PRM_FORMATS_STR, delimiter='\t', newline='\n',
                header=circuit + '\n' + '\t'.join(PRM_NAMES))
 
     immittance_calc_complex = immittance_num(prm_end_run['Values'], w)
     header, data = _get_results_array(f[mask], immittance_exp_complex[mask], immittance_calc_complex[mask])
-    filepath = '{0:s}/{1:s}-{2:s}-{3:d}-{4:d}-d{5:.4f}.{6:s}'.format(fit_folder, name, circuit_str, process_id, run + 1,
-                                                                     np.log10(distance_end_run), DATA_END_EXT)
+    filepath = '{0:s}/{1:s}-{2:s}-{3:d}-{4:d}-d{5:.4e}.{6:s}'.format(fit_folder, name, circuit_str, process_id, run + 1,
+                                                                     distance_end_run/dof, DATA_END_EXT)
     np.savetxt(filepath, data, fmt=RESULT_FORMATTING, delimiter='\t', newline='\n', header=header)
 
     ext = 'pdf'
-    filepath = '{0:s}/{1:s}-{2:s}-{3:d}-{4:d}-{5:s}-d{6:.4f}.{7:s}'.format(fit_folder, name, circuit_str, process_id,
-                                                                           run + 1, 'End', np.log10(distance_end_run),
+    filepath = '{0:s}/{1:s}-{2:s}-{3:d}-{4:d}-{5:s}-d{6:.4e}.{7:s}'.format(fit_folder, name, circuit_str, process_id,
+                                                                           run + 1, 'End', distance_end_run/dof,
                                                                            ext)
     _save_pdf(filepath,
               f, immittance_exp_complex, immittance_calc_complex,
@@ -1277,8 +1286,16 @@ def _save_pdf(filepath,
     pdf = PdfPages(filepath)
     # scilimits = (1e-6,1e6)
 
-    mod_exp, phase_exp, re_exp, im_exp = _get_complex_parameters(immittance_exp_complex, deg=True)
-    mod_calc, phase_calc, re_calc, im_calc = _get_complex_parameters(immittance_calc_complex, deg=True)
+    f_all = f.copy()
+    mod_exp_all, phase_exp_all, re_exp_all, im_exp_all = _get_complex_parameters(immittance_exp_complex, deg=True)
+    mod_calc_all, phase_calc_all, re_calc_all, im_calc_all = _get_complex_parameters(immittance_calc_complex, deg=True)
+
+    f = data[:, 0]
+    mod_exp, phase_exp, re_exp, im_exp = data[:, 1], data[:, 2], data[:, 3], data[:, 4]
+    mod_calc, phase_calc, re_calc, im_calc = data[:, 5], data[:, 6], data[:, 7], data[:, 8]
+    res_mod, res_phase, res_re, res_im = data[:, 9], data[:, 10], data[:, 11], data[:, 12]
+    res_mod_rel, res_phase_rel, res_re_rel, res_im_rel =  data[:, 13], data[:, 14], data[:, 15], data[:, 16]
+
 
     # Nyquist Plot - fitting range
     plt.figure(figsize=(8, 6))
@@ -1289,8 +1306,8 @@ def _save_pdf(filepath,
     plt.gca().set_aspect('equal')
     plt.gca().xaxis.set_minor_locator(AutoMinorLocator())
     plt.gca().yaxis.set_minor_locator(AutoMinorLocator())
-    plt.plot(re_exp[mask], im_exp[mask], 'k-o', markersize=4, markeredgewidth=1, mfc='w', mec='k', label='exp')
-    plt.plot(re_calc[mask], im_calc[mask], 'r.-', markersize=4, linewidth=1, label='fit')
+    plt.plot(re_exp, im_exp, 'k-o', markersize=4, markeredgewidth=1, mfc='w', mec='k', label='exp')
+    plt.plot(re_calc, im_calc, 'r.-', markersize=4, linewidth=1, label='fit')
     ymin, ymax = plt.ylim()
     plt.ylim(ymax, ymin)
     plt.legend(loc='best')
@@ -1306,8 +1323,8 @@ def _save_pdf(filepath,
     plt.gca().set_aspect('equal')
     plt.gca().xaxis.set_minor_locator(AutoMinorLocator())
     plt.gca().yaxis.set_minor_locator(AutoMinorLocator())
-    plt.plot(re_exp, im_exp, 'k-o', markersize=4, markeredgewidth=1, mfc='w', mec='k', label='exp')
-    plt.plot(re_calc, im_calc, 'r.-', markersize=4, linewidth=1, label='fit')
+    plt.plot(re_exp_all, im_exp_all, 'k-o', markersize=4, markeredgewidth=1, mfc='w', mec='k', label='exp')
+    plt.plot(re_calc_all, im_calc_all, 'r.-', markersize=4, linewidth=1, label='fit')
     ymin, ymax = plt.ylim()
     plt.ylim(ymax, ymin)
     plt.legend(loc='best')
@@ -1323,8 +1340,8 @@ def _save_pdf(filepath,
     plt.ylabel(r'$\theta$ /$^{\circ}$')
     plt.xscale('log')
     plt.gca().yaxis.set_minor_locator(AutoMinorLocator())
-    plt.plot(f[mask], phase_exp[mask], 'k-o', markersize=4, markeredgewidth=1, mfc='w', mec='k', label='exp')
-    plt.plot(f[mask], phase_calc[mask], 'r.-', markersize=4, linewidth=1, label='fit')
+    plt.plot(f, phase_exp, 'k-o', markersize=4, markeredgewidth=1, mfc='w', mec='k', label='exp')
+    plt.plot(f, phase_calc, 'r.-', markersize=4, linewidth=1, label='fit')
     ymin, ymax = plt.ylim()
     plt.ylim(ymax, ymin)
     plt.legend(loc='best')
@@ -1340,8 +1357,8 @@ def _save_pdf(filepath,
     plt.ylabel(r'$\theta$ /$^{\circ}$')
     plt.xscale('log')
     plt.gca().yaxis.set_minor_locator(AutoMinorLocator())
-    plt.plot(f, phase_exp, 'k-o', markersize=4, markeredgewidth=1, mfc='w', mec='k', label='exp')
-    plt.plot(f, phase_calc, 'r.-', markersize=4, linewidth=1, label='fit')
+    plt.plot(f_all, phase_exp_all, 'k-o', markersize=4, markeredgewidth=1, mfc='w', mec='k', label='exp')
+    plt.plot(f_all, phase_calc_all, 'r.-', markersize=4, linewidth=1, label='fit')
     ymin, ymax = plt.ylim()
     plt.ylim(ymax, ymin)
     plt.legend(loc='best')
@@ -1357,8 +1374,8 @@ def _save_pdf(filepath,
     plt.ylabel('|Z| /$\Omega$')
     plt.xscale('log')
     plt.yscale('log')
-    plt.plot(f[mask], mod_exp[mask], 'k-o', markersize=4, markeredgewidth=1, mfc='w', mec='k', label='exp')
-    plt.plot(f[mask], mod_calc[mask], 'r.-', markersize=4, linewidth=1, label='fit')
+    plt.plot(f, mod_exp, 'k-o', markersize=4, markeredgewidth=1, mfc='w', mec='k', label='exp')
+    plt.plot(f, mod_calc, 'r.-', markersize=4, linewidth=1, label='fit')
     plt.legend(loc='best')
     pdf.savefig()
     plt.close()
@@ -1372,8 +1389,8 @@ def _save_pdf(filepath,
     plt.ylabel('|Z| /$\Omega$')
     plt.xscale('log')
     plt.yscale('log')
-    plt.plot(f, mod_exp, 'k-o', markersize=4, markeredgewidth=1, mfc='w', mec='k', label='exp')
-    plt.plot(f, mod_calc, 'r.-', markersize=4, linewidth=1, label='fit')
+    plt.plot(f_all, mod_exp_all, 'k-o', markersize=4, markeredgewidth=1, mfc='w', mec='k', label='exp')
+    plt.plot(f_all, mod_calc_all, 'r.-', markersize=4, linewidth=1, label='fit')
     plt.legend(loc='best')
     pdf.savefig()
     plt.close()
@@ -1386,10 +1403,13 @@ def _save_pdf(filepath,
              linewidth=1, mfc='w', mec='k', markeredgewidth=1, label='Not Valid')
     plt.plot(minimization_results[mask_valid, 0], minimization_results[mask_valid, 2], color='g', marker='o',
              linestyle='None', linewidth=1, mfc='w', mec='g', markeredgewidth=1, label='Valid')
-    plt.title('log10(D) vs no fit')
+    plt.title(r'$\chi_{\nu}^2$ vs no fit')
     plt.grid(which='major', axis='both')
+    plt.grid(which='minor', axis='y')
     plt.xlabel('No of minimization')
-    plt.ylabel('log(D)')
+    plt.ylabel(r'$\log10 (\chi_{\nu}^2)$')
+    plt.gca().xaxis.set_minor_locator(AutoMinorLocator())
+    plt.yscale('log')
     plt.legend(loc='best')
     pdf.savefig()
     plt.close()
@@ -1399,13 +1419,14 @@ def _save_pdf(filepath,
     # Solid State Ionics, vol. 18–19, no. Part 1, pp. 136–140, 1986.
     # dRe/Re_exp, dIm/Im_exp vs f in log
     plt.figure(figsize=(8, 6))
-    plt.plot(f[mask], data[:, 11] / mod_exp[mask] * 100.0, 'ko',
-             markersize=4, markeredgewidth=1, mfc='k', mec='k', label='$\Delta Re$')
-    plt.plot(f[mask], data[:, 12] / mod_exp[mask] * 100.0, 'ko',
-             markersize=4, markeredgewidth=1, mfc='w', mec='k', label='$\Delta Im$')
+    plt.plot(f, res_re_rel, 'ko',
+             markersize=4, markeredgewidth=1, mfc='k', mec='k', label='$Re$')
+    plt.plot(f, res_im_rel, 'ko',
+             markersize=4, markeredgewidth=1, mfc='w', mec='k', label='$Im$')
     plt.title('FQ-Plot')
     plt.grid(which='major', axis='both')
     plt.grid(which='minor', axis='x')
+    plt.gca().yaxis.set_minor_locator(AutoMinorLocator())
     plt.xscale('log')
     plt.xlabel('f /Hz')
     plt.ylabel(u'Relative Error /%')
@@ -1413,43 +1434,33 @@ def _save_pdf(filepath,
     pdf.savefig()
     plt.close()
 
-    # Residuals Re
+    # Q-Q Plot Re
+    (osm, osr), (slope, intercept, r) = stats.probplot(res_re, plot=None, fit=True)
     plt.figure(figsize=(8, 6))
-    plt.title(r'Residuals Re')
-    plt.xlabel(r'$ReZ_{calc} - ReZ_{exp}$')
-    plt.ylabel('Normalized Frequency')
-    plt.hist(data[:, 11], bins=20, normed=True, weights=None, cumulative=False, bottom=None, histtype='bar',
-             align='mid', orientation='vertical', rwidth=None, log=False, color='k')
+    plt.grid()
+    plt.title(r'Q-Q Plot for $\Delta Re$')
+    plt.xlabel(r'Theoretical Quantiles')
+    plt.ylabel('Ordered Values')
+    plt.gca().xaxis.set_minor_locator(AutoMinorLocator())
+    plt.gca().yaxis.set_minor_locator(AutoMinorLocator())
+    plt.plot(osm, osr, 'ko', mfc='w', mec='k')
+    plt.plot(osm, slope*osm+intercept, 'r-')
+    plt.text(x=0.8, y=0.15, s='$R^2$={0:.4f}'.format(r**2), transform=plt.gca().transAxes, fontsize=16)
     pdf.savefig()
     plt.close()
 
-    # Residuals Im
+    # Q-Q Plot Im
+    (osm, osr), (slope, intercept, r) = stats.probplot(res_im, plot=None, fit=True)
     plt.figure(figsize=(8, 6))
-    plt.title(r'Residuals Im')
-    plt.xlabel(r'$ImZ_{calc} - ImZ_{exp}$')
-    plt.ylabel('Normalized Frequency')
-    plt.hist(data[:, 12], bins=20, normed=True, weights=None, cumulative=False, bottom=None, histtype='bar',
-             align='mid', orientation='vertical', rwidth=None, log=False, color='k')
-    pdf.savefig()
-    plt.close()
-
-    # Residuals Phase
-    plt.figure(figsize=(8, 6))
-    plt.title(r'Residuals Phase')
-    plt.xlabel(r'$\theta_{calc} - \theta_{exp}$')
-    plt.ylabel('Normalized Frequency')
-    plt.hist(data[:, 10], bins=20, normed=True, weights=None, cumulative=False, bottom=None, histtype='bar',
-             align='mid', orientation='vertical', rwidth=None, log=False, color='k')
-    pdf.savefig()
-    plt.close()
-
-    # Residuals Module
-    plt.figure(figsize=(8, 6))
-    plt.title(r'Residuals Module')
-    plt.xlabel(r'$|Z|_{calc} - |Z|_{exp}$')
-    plt.ylabel('Normalized Frequency')
-    plt.hist(data[:, 9], bins=20, normed=True, weights=None, cumulative=False, bottom=None, histtype='bar', align='mid',
-             orientation='vertical', rwidth=None, log=False, color='k')
+    plt.grid()
+    plt.title(r'Q-Q Plot for $\Delta Im$')
+    plt.xlabel(r'Theoretical Quantiles')
+    plt.ylabel('Ordered Values')
+    plt.gca().xaxis.set_minor_locator(AutoMinorLocator())
+    plt.gca().yaxis.set_minor_locator(AutoMinorLocator())
+    plt.plot(osm, osr, 'ko', mfc='w', mec='k')
+    plt.plot(osm, slope*osm+intercept, 'r-')
+    plt.text(x=0.8, y=0.15, s='$R^2$={0:.4f}'.format(r**2), transform=plt.gca().transAxes, fontsize=16)
     pdf.savefig()
     plt.close()
 
@@ -1532,9 +1543,9 @@ def _get_summary(fit_folder, symbolic_immittance, numeric_immittance):
     if weights_type == '1/I':
         weights = 1.0/immittance_exp_complex
     elif weights_type == '1/s':
-        weights = 1.0/np.sqrt(std_exp_complex)
+        weights = 1.0/std_exp_complex
     elif weights_type == '1/sm':
-        weights = 1.0/np.sqrt(std_m_exp_complex)
+        weights = 1.0/std_m_exp_complex
     elif weights_type == '1':
         weights = np.ones(shape=w.shape, dtype=w.dtype)
     else:
@@ -1542,6 +1553,8 @@ def _get_summary(fit_folder, symbolic_immittance, numeric_immittance):
 
     prm_user = _import_prm_file(prm_user_filepath)
     n = prm_user.size
+    mask_to_fit = _get_mask_to_fit(prm_user)
+    dof = w[mask].size - mask_to_fit.size
     header = '\t'.join(HEADER_MINIMIZATION_ELEMENTS) + '\t'
     header += '\t'.join(prm_user['Names'])
 
@@ -1559,14 +1572,14 @@ def _get_summary(fit_folder, symbolic_immittance, numeric_immittance):
         distance = _get_chi2(prm_array['Values'], w[mask], immittance_exp_complex[mask], numeric_immittance, weights[mask])
         lcc_results = _get_lcc(immittance_exp_complex[mask], immittance_calc_complex[mask])
 
-        summary_end[ind] = (run_i + '-' + minimization_i, valid, np.log10(distance)) \
+        summary_end[ind] = (run_i + '-' + minimization_i, valid, distance/dof) \
             + tuple(lcc_results) + tuple(prm['Values'].tolist())
 
-    # sort over the log10(D)
-    mask_end = np.argsort(summary_end['log10(D)'])
+    # sort over the Xv2
+    mask_end = np.argsort(summary_end['Xv2'])
     filepath = os.path.abspath(result_folder + '/' + basename + '-' + circuit_str + '.' + SUMMARY_END_EXT)
     np.savetxt(filepath, X=summary_end[mask_end],
-               fmt=['%s', '%d', '%+.4f'] + [RESULT_FORMATTING] * (len(HEADER_MINIMIZATION_ELEMENTS) - 3 + n),
+               fmt=['%s', '%d', '%+.4e'] + [SUMMARY_RESULT_FORMATTING] * (len(HEADER_MINIMIZATION_ELEMENTS) - 3 + n),
                delimiter='\t', header=header)
 
     summary_min = np.zeros(shape=(run,), dtype=header_dtypes)
@@ -1580,13 +1593,14 @@ def _get_summary(fit_folder, symbolic_immittance, numeric_immittance):
         distance = _get_chi2(prm_array['Values'], w[mask], immittance_exp_complex[mask], numeric_immittance, weights[mask])
         lcc_results = _get_lcc(immittance_exp_complex[mask], immittance_calc_complex[mask])
 
-        summary_min[ind] = (run_i + '-' + minimization_i, valid, np.log10(distance)) \
+        summary_min[ind] = (run_i + '-' + minimization_i, valid, distance/dof) \
             + tuple(lcc_results) + tuple(prm['Values'].tolist())
-    # sort over the log10(D)
-    mask_min = np.argsort(summary_min['log10(D)'])
+
+    # sort over the Xv2
+    mask_min = np.argsort(summary_min['Xv2'])
     filepath = os.path.abspath(result_folder + '/' + basename + '-' + circuit_str + '.' + SUMMARY_MIN_EXT)
     np.savetxt(filepath, X=summary_min[mask_min],
-               fmt=['%s', '%d', '%+.4f'] + [RESULT_FORMATTING] * (len(HEADER_MINIMIZATION_ELEMENTS) - 3 + n),
+               fmt=['%s', '%d', '%+.4e'] + [SUMMARY_RESULT_FORMATTING] * (len(HEADER_MINIMIZATION_ELEMENTS) - 3 + n),
                delimiter='\t', header=header)
 
 
@@ -1759,8 +1773,8 @@ def _random_scan(w, prm_array, immittance_exp_complex, weights, symbolic_immitta
 
 
 def _callback_fit(filename, run, nb_run, fit, nb_minimization,
-                  distance, valid,
-                  lcc_results, prm_array, prm_user, additional_messages=''):
+                  distance, dof, valid,
+                  lcc_results, prm_array, prm_user, additional_messages=None):
     # progressbar_length = 10.0
 
     os.system('cls' if os.name == 'nt' else 'clear')
@@ -1769,9 +1783,12 @@ def _callback_fit(filename, run, nb_run, fit, nb_minimization,
     sys.stdout.write('***** Run = {0:02d}/{1:02d} ***** \n'.format(run + 1, nb_run))
     sys.stdout.write('Minimizing ...\n')
 
-    general_tb = ptb.PrettyTable(['Fit', 'log10(D)', 'Valid'])
+    general_tb = ptb.PrettyTable(['Fit', 'X2', 'X2/v', 'log10(X2)', 'log10(X2/v)', 'Valid'])
     general_tb.add_row(['{0:03d}/{1:03d}'.format(fit + 1, nb_minimization),
-                        '{0:+09.4f}'.format(np.log10(distance)),
+                        '{0:+09.4e}'.format(distance),
+                        '{0:+09.4e}'.format(distance/dof),
+                        '{0:+09.4e}'.format(np.log10(distance)),
+                        '{0:+09.4e}'.format(np.log10(distance/dof)),
                         '{0:s}'.format(str(valid))])
     sys.stdout.write(general_tb.get_string() + '\n')
 
@@ -1789,9 +1806,11 @@ def _callback_fit(filename, run, nb_run, fit, nb_minimization,
     tb.add_column('Min', prm['Min'], align='l')
     tb.add_column('Max', prm['Max'], align='l')
     sys.stdout.write(tb.get_string() + '\n')
-    for i in additional_messages:
-        sys.stdout.write(i + '\n')
-    sys.stdout.flush()
+
+    if isinstance(additional_messages, list):
+        for i in additional_messages:
+            sys.stdout.write(i + '\n')
+        sys.stdout.flush()
 
 
 def _get_circuit_string(circuit):
@@ -1920,6 +1939,10 @@ def _initiliaze_prm_arrays(symbolic_immittance, prmfilepath):
 
 
 def _initiliaze_minimization_array(nb_minimization, prm_user):
+    r"""
+        DocString
+    """
+
     header_minimization_results = '\t'.join(HEADER_MINIMIZATION_ELEMENTS) + '\t'
     header_minimization_results += '\t'.join(prm_user['Names'])
     col = len(HEADER_MINIMIZATION_ELEMENTS) + prm_user['Names'].size
@@ -2016,7 +2039,9 @@ def generate_calculated_values(prmfilepath, savefilepath,
                                f_limits=(1e-3, 1e6),
                                points_per_decade=10,
                                re_relative_error=0.0, im_relative_error=0.0,
-                               samples=100):
+                               p=0.95,
+                               samples=3,
+                               t_factor=True):
     r"""
 
     Generate values for a circuit from parameter values provided by the user.
@@ -2064,49 +2089,56 @@ def generate_calculated_values(prmfilepath, savefilepath,
     f = np.logspace(logf_start, logf_end, points_per_decade * decades)
     w = 2 * np.pi * f
 
-    re_array = np.zeros(shape=(w.size, samples + 3), dtype=FLOAT)
-    im_array = np.zeros(shape=(w.size, samples + 3), dtype=FLOAT)
+    re_m = np.zeros(shape=w.shape, dtype=FLOAT)
+    im_m = np.zeros(shape=w.shape, dtype=FLOAT)
+    re_s = np.zeros(shape=w.shape, dtype=FLOAT)
+    im_s = np.zeros(shape=w.shape, dtype=FLOAT)
+    re_sm = np.zeros(shape=w.shape, dtype=FLOAT)
+    im_sm = np.zeros(shape=w.shape, dtype=FLOAT)
 
     immittance_calc_complex = immittance_num(prm_array['Values'], w)
     mod, phase, re, im = _get_complex_parameters(immittance_calc_complex, deg=True)
 
     # The relative errors are taken as the 95% interval in normal distribution i.e. 1.96*sigma
     # sigma(w) = relative_error*Re(w)/1.96
-    for i in range(samples):
-        re_array[:, i] = re * (1 + np.random.standard_normal((w.size,)) * re_relative_error / 100.0 / stats.norm.isf(0.025))
-        im_array[:, i] = im * (1 + np.random.standard_normal((w.size,)) * im_relative_error / 100.0 / stats.norm.isf(0.025))
+    dof = samples - 1
+    # student coefficient tvp for std at 68% i.e. for 1 sigma with limited samples
+    # if samples --> inf then tvp --> 1.0
+    if t_factor:
+        tvp = stats.t.isf(stats.norm.sf(1), dof)
+    else:
+        tvp = 1.0
+    p_norm = (1-p)/2.0
+    for i, in np.ndindex(w.shape):
+        scale_i = re_relative_error/100.0/stats.norm.isf(p_norm)*np.abs(re[i])
+        re_i = np.random.normal(loc=re[i], scale=scale_i, size=samples)
 
-    # dof = samples - 1
-    # tvp = stats.t.isf(stats.norm.sf(1), dof)
+        scale_i = im_relative_error/100.0/stats.norm.isf(p_norm)*np.abs(im[i])
+        im_i = np.random.normal(loc=im[i], scale=scale_i, size=samples)
 
-    re_array[:, samples] = np.mean(re_array[:, 0:samples], axis=1)
-    im_array[:, samples] = np.mean(im_array[:, 0:samples], axis=1)
+        re_m[i] = np.mean(re_i)
+        im_m[i] = np.mean(im_i)
 
-    re_array[:, samples + 1] = np.std(re_array[:, 0:samples], axis=1, ddof=1)
-    im_array[:, samples + 1] = np.std(im_array[:, 0:samples], axis=1, ddof=1)
+        re_s[i] = np.std(re_i, ddof=1) * tvp
+        im_s[i] = np.std(im_i, ddof=1) * tvp
 
-    re_array[:, samples + 2] =  re_array[:, samples + 1] / np.sqrt(samples)
-    im_array[:, samples + 2] =  im_array[:, samples + 1] / np.sqrt(samples)
+        re_sm[i] = re_s[i]/np.sqrt(samples)
+        im_sm[i] = im_s[i]/np.sqrt(samples)
 
     header_elements = [u'f /Hz',
                        u'Re{0:s} /Ohms'.format(immittance_type),
                        u'Im{0:s} /Ohms'.format(immittance_type),
-                       u'V_Re{0:s} /Ohms'.format(immittance_type),
-                       u'V_Im{0:s} /Ohms'.format(immittance_type),
-                       u'Vm_Re{0:s} /%'.format(immittance_type),
-                       u'Vm_Im{0:s} /%'.format(immittance_type)]
+                       u'S_Re{0:s} /Ohms'.format(immittance_type),
+                       u'S_Im{0:s} /Ohms'.format(immittance_type),
+                       u'Sm_Re{0:s} /%'.format(immittance_type),
+                       u'Sm_Im{0:s} /%'.format(immittance_type)]
 
-    re = re_array[:, samples]
-    im = im_array[:, samples]
-
-    re_s = re_array[:, samples + 1]
-    im_s = im_array[:, samples + 1]
-
-    re_sm = re_array[:, samples + 2]
-    im_sm = im_array[:, samples + 2]
-
-    data = np.vstack((f, re, im, re_s, im_s, re_sm, im_sm)).transpose()
-    np.savetxt(savefilepath, X=data, delimiter='\t', header='\t'.join(header_elements))
+    data = np.vstack((f, re_m, im_m, re_s, im_s, re_sm, im_sm)).transpose()
+    basename = os.path.basename(savefilepath)
+    dirpath = os.path.dirname(savefilepath)
+    name, ext = basename.split('.')
+    filepath = dirpath + '/' + name + '.pyeisdata'
+    np.savetxt(filepath, X=data, delimiter='\t', header='\t'.join(header_elements))
 
 
 def _round_errors(errors):
@@ -2279,14 +2311,15 @@ def run_fit(datafilepath, prmfilepath,
     filename = os.path.basename(datafilepath)
     f, w, immittance_exp_complex, std_exp_complex, std_m_exp_complex = import_experimental_data(datafilepath, immittance_type=immittance_type)
     mask = _get_frequency_mask(f, f_limits)
+    dof = w[mask].size - nb_param
 
     # set the weights
     if weights_type == '1/I':
         weights = 1.0/immittance_exp_complex
     elif weights_type == '1/s':
-        weights = 1.0/np.sqrt(std_exp_complex)
+        weights = 1.0/std_exp_complex
     elif weights_type == '1/sm':
-        weights = 1.0/np.sqrt(std_m_exp_complex)
+        weights = 1.0/std_m_exp_complex
     elif weights_type == '1':
         weights = np.ones(shape=w.shape, dtype=w.dtype)
     else:
@@ -2363,15 +2396,15 @@ def run_fit(datafilepath, prmfilepath,
             valid = _check_validity_prm(prm_array)
             minimization_results[fit] = np.hstack((fit + 1,
                                                    int(valid),
-                                                   np.log10(distance),
+                                                   distance/dof,
                                                    lcc_results,
                                                    prm_output['Values']))
 
             prm_end_run[:] = prm_array[:]
             distance_end_run = distance
 
-            args = (filename, run, nb_run_per_process, fit, nb_minimization, distance, valid,
-                    lcc_results, prm_array, prm_user)
+            args = (filename, run, nb_run_per_process, fit, nb_minimization, distance, dof, valid,
+                    lcc_results, prm_end_run, prm_user)
             if callback is not None:
                 callback(*args)
 
@@ -2387,9 +2420,7 @@ def run_fit(datafilepath, prmfilepath,
                     prm_min_run[:] = prm_array[:]
 
         if callback is not None:
-            callback(filename, run, nb_run_per_process, fit, nb_minimization,
-                     distance, valid,
-                     lcc_results, prm_end_run, prm_user, ['Computing Covariance Matrix...'])
+            callback(*(args + (['Computing Covariance Matrix...'],)))
 
         prm_end_run['Errors'][:] = _get_prm_error(prm_end_run['Values'],
                                                   _get_residuals,
@@ -2407,9 +2438,7 @@ def run_fit(datafilepath, prmfilepath,
                                                   weights[mask])
 
         if callback is not None:
-            callback(filename, run, nb_run_per_process, fit, nb_minimization,
-                     distance, valid,
-                     lcc_results, prm_end_run, prm_user, ['Saving Results...'])
+            callback(*(args + (['Saving Results...'],)))
 
         _save_results(circuit, run, process_id, fit_folder, datafilepath, circuit_str, f, mask,
                       immittance_exp_complex, immittance_num,
@@ -2417,10 +2446,7 @@ def run_fit(datafilepath, prmfilepath,
                       minimization_results, header_minimization_results)
 
     if callback is not None:
-        callback(filename, run, nb_run_per_process, fit, nb_minimization,
-                 distance, valid,
-                 lcc_results, prm_end_run, prm_user,
-                 additional_messages=['Computing Summary ...'])
+        callback(*(args + (['Computing Summary ...'],)))
 
     _get_summary(fit_folder, immittance, immittance_num)
     _plot_summary(fit_folder)
