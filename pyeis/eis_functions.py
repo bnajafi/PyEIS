@@ -704,18 +704,18 @@ def _get_random_prm_values(prm_array, all_parameters=False):
 
     mask_linear, = np.where(lograndomize == 0)
     mask_log, = np.where(lograndomize == 1)
-    mask_positive = np.where(sign == 1)
-    mask_negative = np.where(sign == -1)
-    mask_both = np.where(sign == 0)
-    random_sign = np.random.randint(-1, 1, len(mask_both))
-    random_sign[random_sign == 0] = 1.0
+    mask_positive, = np.where(sign == 1)
+    mask_negative, = np.where(sign == -1)
+    mask_both, = np.where(sign == 0)
+    random_sign = np.random.uniform(low=0, high=2, size=mask_both.size).astype(np.int8)
+    random_sign[random_sign == 0] = -1.0
 
-    # in linear scale the random values are classically calculated by: value = low + random(0,1)*(up-low)
+    # in linear scale the random values are classically calculated by: value = low + uniform(0,1)*(up-low)
     # in log scale the random values are calculated using the logarithmic values of the limits:
-    # value = 10**( log10(low) + random(0,1)*(log10(up)-log(low)) )
-    value[mask_linear] = lbounds[mask_linear] + np.random.random((mask_linear.size,)) * (
+    # value = 10**( log10(low) + uniform(0,1)*(log10(up)-log(low)) )
+    value[mask_linear] = lbounds[mask_linear] + np.random.uniform(0, 1, mask_linear.size) * (
         ubounds[mask_linear] - lbounds[mask_linear])
-    value[mask_log] = 10 ** (np.log10(lbounds[mask_log]) + np.random.random((mask_log.size,)) * (
+    value[mask_log] = 10 ** (np.log10(lbounds[mask_log]) + np.random.uniform(0, 1, mask_log.size) * (
         np.log10(ubounds[mask_log]) - np.log10(lbounds[mask_log])))
 
     value[mask_positive] *= 1.0
