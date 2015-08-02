@@ -12,11 +12,12 @@ The fitting procedure uses extensively Numpy+Scipy.
 Plots are generated with matplotlib and console outputs of the results are put together with PrettyTables.
 
 The documentation is 80% completed and the code is still under active development. However, great care is taken
-in avoiding backward incompatibilities. 
+in avoiding backward incompatibilities. The module is implemented using a procedural programming style.
 
 How to install
 ==============
-Download the zip or tarball file and extract it locally. Install the package by using the setup.py file.
+Download the zip or tarball file and extract it locally. Install the package by using the setup.py file. It works with
+Python 2 and 3.
 
 .. code-block:: python
 
