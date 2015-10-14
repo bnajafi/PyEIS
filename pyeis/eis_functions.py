@@ -131,20 +131,20 @@ HEADER_MINIMIZATION_ELEMENTS = ['Nb of Run',
                                 'intercept Im']
 
 
-def _tanh(z):
-    # TODO Look up for Numpy 1.9.3, tanh issue for large complex number should be fixed
-    """
-    Fix Numpy issue for large complex number.
-    Should be fixed in Numpy 1.9.3
-    This implementation should overflow for large -negative complex number
-    As EIS always uses positive angular frequencies, this implementation is a fairly good work around.
-    """
-    return (1 - np.exp(-2 * z)) / (1 + np.exp(-2 * z))
+# def _tanh(z):
+#    # TODO Look up for Numpy 1.9.3, tanh issue for large complex number should be fixed
+#    """
+#    Fix Numpy issue for large complex number.
+#    Should be fixed in Numpy 1.9.3
+#    This implementation should overflow for large -negative complex number
+#    As EIS always uses positive angular frequencies, this implementation is a fairly good work around.
+#    """
+#    return (1 - np.exp(-2 * z)) / (1 + np.exp(-2 * z))
 
 
 # Shadowing the built-in function
 # Avoid overflowing for large complex numbers
-np.tanh = _tanh
+#np.tanh = _tanh
 
 
 def _get_header_footer_par_file(filepath):
@@ -218,7 +218,7 @@ def _get_exp_data(filepath):
     If a commercial or a dummy file is provided, the standard deviations for the real and imaginary parts are set to 1.0.
 
     A more custom file format .pyeisdata is supported where the 1st column is the frequencies :math:`f`.
-    The columns 2 and 3 represent the mean values :math:`f`, :math:`\overline{ReZ}`, :math:`\overline{ImZ}`.
+    The columns 2 and 3 represent the mean values :math:`\overline{ReZ}`, :math:`\overline{ImZ}`.
     of the :math:`N` measurements at each frequency :math:`f`.
     The columns 4 and 5 represent the standard deviations :math:`\sigma_{ReZ}` and :math:`\sigma_{ImZ}`
     of the :math:`N` measurements at each frequency :math:`f`.
@@ -297,8 +297,8 @@ def _get_exp_data(filepath):
 
         if len(usecols) == 3:
             f, rez, imz = np.genfromtxt(fname=filepath, dtype=FLOAT, comments='#', delimiter=delimiter,
-                                        skiprows=0, skip_header=skip_header, skip_footer=skip_footer,
-                                        converters=converters, missing='', missing_values=None, filling_values=None,
+                                        skip_header=skip_header, skip_footer=skip_footer,
+                                        converters=converters, missing_values=None, filling_values=None,
                                         usecols=usecols, names=None, excludelist=None,
                                         deletechars=None, replace_space='_', autostrip=False, case_sensitive=True,
                                         defaultfmt='f%i', unpack=True, usemask=False, loose=True, invalid_raise=True)
@@ -308,8 +308,8 @@ def _get_exp_data(filepath):
             imz_sm = np.ones(shape=imz.shape, dtype=imz.dtype)
         elif len(usecols) == 7:
             f, rez, imz, rez_s, imz_s, rez_sm, imz_sm = np.genfromtxt(fname=filepath, dtype=FLOAT, comments='#', delimiter=delimiter,
-                                        skiprows=0, skip_header=skip_header, skip_footer=skip_footer,
-                                        converters=converters, missing='', missing_values=None, filling_values=None,
+                                        skip_header=skip_header, skip_footer=skip_footer,
+                                        converters=converters, missing_values=None, filling_values=None,
                                         usecols=usecols, names=None, excludelist=None,
                                         deletechars=None, replace_space='_', autostrip=False, case_sensitive=True,
                                         defaultfmt='f%i', unpack=True, usemask=False, loose=True, invalid_raise=True)
